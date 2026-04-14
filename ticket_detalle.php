@@ -63,26 +63,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             }
         }
 
+// La edición se movió a admin/tickets.php
+
         if ($_POST['action'] == 'reaccionar' && $user['role'] == 'tecnico') {
             $status = $_POST['status'];
-            $comment = trim($_POST['comment']);
+            $tech_comment = trim($_POST['tech_comment'] ?? '');
+            
+            $stmt = $conn->prepare("UPDATE tickets SET status = ?::ticket_status, tech_comment = ?, attended_at = CASE WHEN ? = 'Atendido' THEN NOW() ELSE attended_at END WHERE id = ? AND technician_id = ?");
+            $stmt->execute([$status, $tech_comment, $status, $ticket_id, $user['id']]);
 
-            if ($status == 'Rechazado' && empty($comment)) {
-                $error = "Debe indicar el motivo por el cual se rechaza el ticket.";
-            } else {
-                if (empty($comment)) {
-                    $comment = "Estado actualizado"; // Default comment  
-                }
+            $comment = "El técnico actualizó el estado a " . $status;
+            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, ?)");
+            $stmtHist->execute([$ticket_id, $status, $user['id'], $comment]);
 
-                $stmt = $conn->prepare("UPDATE tickets SET status = ?::ticket_status, attended_at = CASE WHEN ? = 'Atendido' THEN NOW() ELSE attended_at END WHERE id = ? AND technician_id = ?");
-                $stmt->execute([$status, $status, $ticket_id, $user['id']]);
-
-                $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, ?)");
-                $stmtHist->execute([$ticket_id, $status, $user['id'], $comment]);
-
-                header("Location: ticket_detalle.php?id=$ticket_id&success=updated");
-                exit();
-            }
+            header("Location: ticket_detalle.php?id=$ticket_id&success=updated");
+            exit();
         }
     } catch (PDOException $e) {
         $error = "Error al procesar la solicitud: " . $e->getMessage();
@@ -91,10 +86,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
 
 // Obtener datos principales del ticket
 $stmt = $conn->prepare("
-    SELECT t.*, u.first_name, u.last_name, u.email, u.phone, o.name as office_name
+    SELECT t.*, u.first_name, u.last_name, u.email, u.phone, 
+           COALESCE(tofc.name, uofc.name) as office_name
     FROM tickets t
     JOIN usuarios u ON t.user_id = u.id
-    LEFT JOIN oficina o ON u.office_id = o.id
+    LEFT JOIN oficina tofc ON t.office_id = tofc.id
+    LEFT JOIN oficina uofc ON u.office_id = uofc.id
     WHERE t.id = ?
 ");
 $stmt->execute([$ticket_id]);
@@ -139,15 +136,13 @@ if ($user['role'] == 'admin') {
 // Si es técnico, verificar si está asignado a este ticket para permitirle editar
 $is_assigned = false;
 $tech_status = '';
-$tech_comment = '';
 if ($user['role'] == 'tecnico') {
-    $stmtCh = $conn->prepare("SELECT status, '' as comment FROM tickets WHERE id = ? AND technician_id = ?");
+    $stmtCh = $conn->prepare("SELECT status FROM tickets WHERE id = ? AND technician_id = ?");
     $stmtCh->execute([$ticket_id, $user['id']]);
     $det = $stmtCh->fetch(PDO::FETCH_ASSOC);
     if ($det) {
         $is_assigned = true;
         $tech_status = $det['status'];
-        $tech_comment = $det['comment'];
     }
 }
 
@@ -161,13 +156,17 @@ $stmtAsign = $conn->prepare("
 $stmtAsign->execute([$ticket_id]);
 $asignaciones = $stmtAsign->fetchAll(PDO::FETCH_ASSOC);
 
-require 'includes/header.php';
+if ($user['role'] == 'admin') {
+    require 'admin/includes/admin_header.php';
+} else {
+    require 'includes/header.php';
+}
 ?>
 
 <div class="row pt-2 mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center mb-3">
         <div>
-            <a href="index.php" class="btn btn-sm btn-outline-secondary rounded-pill px-3 mb-2"><i class="bi bi-arrow-left me-1"></i> Volver</a>
+            <a href="<?php echo $user['role'] == 'admin' ? 'admin/dashboard.php' : 'index.php'; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3 mb-2"><i class="bi bi-arrow-left me-1"></i> Volver</a>
             <h2 class="fw-bold mb-0 text-dark">
                 Ticket #<?php echo str_pad($ticket['id'], 4, '0', STR_PAD_LEFT); ?>
                 <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> ms-2 mt-n2 align-middle" style="font-size: 0.5em;"><?php echo htmlspecialchars($current_status); ?></span>
@@ -193,35 +192,63 @@ require 'includes/header.php';
     </div>
 <?php endif; ?>
 
-<div class="row g-4 mb-5">
+<div class="row justify-content-center g-4 mb-5">
     
-    <!-- LADO IZQUIERDO: Info y Formularios -->
-    <div class="col-lg-8">
-        <!-- Detalles Principales -->
+    <!-- COLUMNA CENTRALIZADA (1 sola columna para flujo vertical fluido) -->
+    <div class="col-lg-10 col-xl-9">
+        
+        <!-- Detalles Principales del Ticket -->
         <div class="card glass-card border-0 mb-4 fade-in">
             <div class="card-body p-4 p-md-5">
-                <h4 class="fw-bold mb-4 text-primary"><?php echo htmlspecialchars($ticket['title']); ?></h4>
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <h4 class="fw-bold mb-0 text-primary"><?php echo htmlspecialchars($ticket['title']); ?></h4>
+                </div>
                 
                 <div class="bg-light p-3 rounded-3 mb-4 border" style="white-space: pre-wrap; font-size:1.05rem;"><?php echo htmlspecialchars($ticket['description']); ?></div>
-
-                <?php if (count($files) > 0): ?>
-                <h6 class="fw-bold mb-3"><i class="bi bi-paperclip"></i> Archivos Adjuntos</h6>
-                <div class="d-flex flex-wrap gap-2 mb-4">
-                    <?php foreach($files as $f): 
+                <?php if (count($files) > 0): 
+                    $images = [];
+                    $other_files = [];
+                    foreach($files as $f) {
                         $ext = pathinfo($f['file_path'], PATHINFO_EXTENSION);
-                        $is_img = in_array(strtolower($ext), ['jpg','jpeg','png','gif']);
-                    ?>
-                        <?php if($is_img): ?>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openImageViewer('<?php echo htmlspecialchars($f['file_path']); ?>', '<?php echo htmlspecialchars(basename($f['file_path'])); ?>')" title="Previsualizar Imagen">
-                                <i class="bi bi-arrows-fullscreen me-1"></i> Previsualizar
-                            </button>
-                        <?php else: ?>
-                            <a href="<?php echo htmlspecialchars($f['file_path']); ?>" target="_blank" class="btn btn-outline-secondary btn-sm" title="<?php echo htmlspecialchars(basename($f['file_path'])); ?>">
-                                <i class="bi bi-file-earmark-arrow-down me-1"></i> Descargar Documento
-                            </a>
-                        <?php endif; ?>
+                        if (in_array(strtolower($ext), ['jpg','jpeg','png','gif','webp'])) {
+                            $images[] = $f;
+                        } else {
+                            $other_files[] = $f;
+                        }
+                    }
+                ?>
+                <h6 class="fw-bold mb-3"><i class="bi bi-paperclip"></i> Archivos Adjuntos</h6>
+                
+                <?php if(count($images) > 0): ?>
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <?php foreach($images as $index => $img): ?>
+                        <div class="image-thumbnail-container" onclick="openGallery(<?php echo $index; ?>)" style="width: 100px; height: 100px; overflow: hidden; border-radius: 8px; cursor: pointer; border: 2px solid rgba(0,0,0,0.1); transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" title="Ver imagen completa">
+                            <img src="<?php echo htmlspecialchars($img['file_path']); ?>" alt="<?php echo htmlspecialchars(basename($img['file_path'])); ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.1)'; this.parentElement.style.borderColor='#0d6efd';" onmouseout="this.style.transform='scale(1)'; this.parentElement.style.borderColor='rgba(0,0,0,0.1)';">
+                        </div>
                     <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
+
+                <?php if(count($other_files) > 0): ?>
+                <div class="list-group mb-4">
+                    <?php foreach($other_files as $f): ?>
+                        <a href="<?php echo htmlspecialchars($f['file_path']); ?>" target="_blank" class="list-group-item list-group-item-action d-flex align-items-center mb-2 rounded-3 border text-decoration-none">
+                            <div class="bg-light p-2 rounded me-3 d-flex align-items-center justify-content-center text-primary">
+                                <i class="bi bi-file-earmark-text fs-4"></i>
+                            </div>
+                            <div class="flex-grow-1 text-truncate">
+                                <span class="d-block fw-semibold text-dark text-truncate" title="<?php echo htmlspecialchars(basename($f['file_path'])); ?>"><?php echo htmlspecialchars(basename($f['file_path'])); ?></span>
+                                <span class="d-block small text-muted text-uppercase"><?php echo htmlspecialchars(pathinfo($f['file_path'], PATHINFO_EXTENSION)); ?> Documento</span>
+                            </div>
+                            <div class="ms-2 text-secondary">
+                                <i class="bi bi-download fs-5"></i>
+                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+                <?php else: ?>
+                <div class="mb-4"></div>
+                <?php endif; ?>
                 <?php endif; ?>
 
                 <hr class="text-muted opacity-25">
@@ -365,64 +392,119 @@ require 'includes/header.php';
         <?php endif; ?>
 
         <?php if ($user['role'] == 'tecnico' && $is_assigned && !in_array($tech_status, ['Atendido', 'Rechazado'])): ?>
-            <!-- Formulario de Respuesta del Técnico -->
+            <!-- Acciones Rápidas del Técnico -->
             <div class="card glass-card border-0 mb-4 border-top border-4 border-info fade-in">
-                <div class="card-body p-4">
-                    <h5 class="fw-bold text-info mb-3"><i class="bi bi-pencil-square me-2"></i> Gestionar Ticket</h5>
-                    <form method="POST" id="form-tech-manage">
-                        <input type="hidden" name="action" value="reaccionar">
-                        <div class="mb-3">
-                            <label class="form-label fw-medium">Nuevo Estado:</label>
-                            <select class="form-select" name="status" id="tech-status-select" required onchange="toggleCommentRequired()">
-                                <option value="" selected disabled>Seleccione el siguiente estado...</option>
-                                <?php if ($tech_status == 'En camino'): ?>
-                                    <option value="En proceso">En proceso</option>
-                                    <option value="Rechazado">Rechazado / Fuera de alcance</option>
-                                <?php elseif ($tech_status == 'En proceso'): ?>
-                                    <option value="Atendido">Atendido / Resuelto</option>
-                                    <option value="Rechazado">Rechazado / Fuera de alcance</option>
-                                <?php else: ?>
-                                    <option value="En proceso" <?php echo ($tech_status=='En proceso')?'selected':''; ?>>En proceso</option>
-                                    <option value="Atendido" <?php echo ($tech_status=='Atendido')?'selected':''; ?>>Atendido / Resuelto</option>
-                                    <option value="Rechazado" <?php echo ($tech_status=='Rechazado')?'selected':''; ?>>Rechazado / Fuera de alcance</option>
-                                <?php endif; ?>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-medium">Comentario / Solución: <span id="comment-optional-text" class="text-muted fw-normal small">(Opcional)</span></label>
-                            <textarea class="form-control" name="comment" id="tech-comment-input" rows="3" placeholder="Detalles de la actualización..."></textarea>
-                        </div>
-                        <div class="text-end">
-                            <button type="submit" class="btn btn-info text-dark fw-bold px-4">Actualizar Ticket</button>
-                        </div>
-                    </form>
-                    <script>
-                        function toggleCommentRequired() {
-                            var statusSel = document.getElementById('tech-status-select');
-                            var commentInput = document.getElementById('tech-comment-input');
-                            var optText = document.getElementById('comment-optional-text');
-                            if (statusSel.value === 'Rechazado') {
-                                commentInput.required = true;
-                                optText.innerHTML = '<span class="text-danger fw-bold">(Obligatorio por rechazo)</span>';
-                                commentInput.placeholder = 'Indique el motivo del rechazo...';
-                            } else {
-                                commentInput.required = false;
-                                optText.innerHTML = '<span class="text-muted fw-normal">(Opcional)</span>';
-                                commentInput.placeholder = 'Detalles de la actualización...';
-                            }
-                        }
-                        // Call on load in case it starts on Rechazado
-                        document.addEventListener("DOMContentLoaded", toggleCommentRequired);
-                    </script>
+                <div class="card-body p-4 text-center">
+                    <h5 class="fw-bold text-info mb-4"><i class="bi bi-tools me-2"></i> Acciones del Ticket</h5>
+                    
+                    <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
+                        <?php if ($tech_status == 'En camino'): ?>
+                            <button type="button" class="btn btn-primary px-4 py-2 fw-bold" onclick="openTechStatusModal('En proceso')">
+                                <i class="bi bi-play-circle me-1"></i> Iniciar Proceso
+                            </button>
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="openTechStatusModal('Rechazado')">
+                                <i class="bi bi-x-circle me-1"></i> Rechazar
+                            </button>
+                        <?php elseif ($tech_status == 'En proceso'): ?>
+                            <button type="button" class="btn btn-success px-4 py-2 fw-bold" onclick="openTechStatusModal('Atendido')">
+                                <i class="bi bi-check-circle me-1"></i> Marcar como Atendido
+                            </button>
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="openTechStatusModal('Rechazado')">
+                                <i class="bi bi-x-circle me-1"></i> Rechazar
+                            </button>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-primary px-4 py-2 fw-bold" onclick="openTechStatusModal('En proceso')">
+                                <i class="bi bi-play-circle me-1"></i> Iniciar Proceso
+                            </button>
+                            <button type="button" class="btn btn-success px-4 py-2 fw-bold" onclick="openTechStatusModal('Atendido')">
+                                <i class="bi bi-check-circle me-1"></i> Marcar como Atendido
+                            </button>
+                            <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="openTechStatusModal('Rechazado')">
+                                <i class="bi bi-x-circle me-1"></i> Rechazar
+                            </button>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
+
+            <!-- Modal Técnico (Confirmar Estado) -->
+            <div class="modal fade" id="techStatusModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow text-start">
+                        <div class="modal-header text-white" id="techStatusModalHeader">
+                            <h5 class="modal-title fw-bold" id="techStatusModalTitle">Mover a...</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <p id="techStatusModalText" class="mb-4">¿Estás seguro que deseas actualizar el estado?</p>
+                            <form method="POST" id="form-tech-manage">
+                                <input type="hidden" name="action" value="reaccionar">
+                                <input type="hidden" name="status" id="tech-modal-status">
+                                <div class="mb-3">
+                                    <label class="form-label fw-medium text-dark">Reporte del Técnico: <span id="tech-modal-comment-optional" class="text-muted fw-normal small">(Opcional)</span></label>
+                                    <textarea class="form-control" name="tech_comment" id="tech-modal-comment-input" rows="4" placeholder="Escriba aquí el proceso, observaciones o la solución final que será visible para el solicitante..."><?php echo htmlspecialchars($ticket['tech_comment'] ?? ''); ?></textarea>
+                                </div>
+                                <div class="text-end mt-4">
+                                    <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary px-4 fw-bold" id="tech-modal-submit-btn">Confirmar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            function openTechStatusModal(newStatus) {
+                var modal = new bootstrap.Modal(document.getElementById('techStatusModal'));
+                var header = document.getElementById('techStatusModalHeader');
+                var title = document.getElementById('techStatusModalTitle');
+                var textP = document.getElementById('techStatusModalText');
+                var statusInput = document.getElementById('tech-modal-status');
+                var btnSubmit = document.getElementById('tech-modal-submit-btn');
+
+                statusInput.value = newStatus;
+
+                // Reset styles
+                header.classList.remove('bg-primary', 'bg-success', 'bg-danger');
+                btnSubmit.classList.remove('btn-primary', 'btn-success', 'btn-danger');
+
+                if (newStatus === 'En proceso') {
+                    header.classList.add('bg-primary');
+                    title.innerHTML = '<i class="bi bi-play-circle me-2"></i> Iniciar Proceso';
+                    textP.innerHTML = 'El ticket cambiará a estado <strong>En proceso</strong>.';
+                    btnSubmit.classList.add('btn-primary');
+                    btnSubmit.innerText = 'Iniciar Proceso';
+                    
+                    document.getElementById('tech-modal-comment-input').required = false;
+                    document.getElementById('tech-modal-comment-optional').innerHTML = '<span class="text-muted fw-normal">(Opcional)</span>';
+                    
+                } else if (newStatus === 'Atendido') {
+                    header.classList.add('bg-success');
+                    title.innerHTML = '<i class="bi bi-check-circle me-2"></i> Marcar como Atendido';
+                    textP.innerHTML = 'El ticket será cerrado y marcado con éxito como <strong>Atendido / Resuelto</strong>.';
+                    btnSubmit.classList.add('btn-success');
+                    btnSubmit.innerText = 'Finalizar Ticket';
+
+                    document.getElementById('tech-modal-comment-input').required = false;
+                    document.getElementById('tech-modal-comment-optional').innerHTML = '<span class="text-muted fw-normal">(Resumen Opcional de la solución)</span>';
+
+                } else if (newStatus === 'Rechazado') {
+                    header.classList.add('bg-danger');
+                    title.innerHTML = '<i class="bi bi-x-circle me-2"></i> Rechazar Ticket';
+                    textP.innerHTML = 'Estás a punto de <strong>Rechazar</strong> este ticket.';
+                    btnSubmit.classList.add('btn-danger');
+                    btnSubmit.innerText = 'Confirmar Rechazo';
+                    
+                    document.getElementById('tech-modal-comment-input').required = true;
+                    document.getElementById('tech-modal-comment-optional').innerHTML = '<span class="text-danger fw-bold">(Obligatorio)</span>';
+                }
+
+                modal.show();
+            }
+            </script>
         <?php endif; ?>
 
-    </div>
-
-    <!-- LADO DERECHO: Historial y Feedback -->
-    <div class="col-lg-4">
-        
         <div id="assigned-techs-wrapper">
         <?php if (count($asignaciones) > 0): ?>
             <!-- Técnicos Asignados Actualmente -->
@@ -443,6 +525,16 @@ require 'includes/header.php';
             </div>
         <?php endif; ?>
         </div>
+
+        <!-- REPORTE DEL TÉCNICO -->
+        <?php if (!empty($ticket['tech_comment'])): ?>
+            <div class="card glass-card border-0 mb-4 fade-in border-start border-4 border-dark">
+                <div class="card-body p-4 p-md-5 bg-white rounded-3 shadow-sm">
+                    <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-tools text-primary me-2"></i> Reporte y Diagnóstico Técnico</h5>
+                    <div class="p-3 bg-light rounded border" style="white-space: pre-wrap; font-size:1.05rem; color: #333; line-height: 1.6;"><?php echo htmlspecialchars($ticket['tech_comment']); ?></div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Registro Detallado (Historial Vertical Visual) -->
         <div class="card glass-card border-0 fade-in position-relative mb-4">
@@ -542,16 +634,21 @@ require 'includes/header.php';
 <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-fullscreen">
     <div class="modal-content bg-dark bg-opacity-75" style="backdrop-filter: blur(10px);">
-      <div class="modal-header border-0 position-absolute w-100" style="z-index: 1055;">
-        <h5 class="modal-title text-white text-truncate pe-3 fw-bold" id="imageViewerTitle" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">Preview</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-header border-0 position-absolute w-100 d-flex justify-content-between align-items-center" style="z-index: 1055;">
+        <h5 class="modal-title text-white text-truncate pe-3 fw-bold flex-grow-1" id="imageViewerTitle" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">Preview</h5>
+        <div class="text-white d-flex align-items-center gap-3">
+            <span id="galleryCounter" class="fw-bold bg-dark bg-opacity-50 px-3 py-1 rounded-pill" style="font-size: 0.9rem;"></span>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
       </div>
-      <div class="modal-body p-0 d-flex justify-content-center align-items-center overflow-hidden" id="imageViewerBody">
-        <img src="" id="imageViewerImg" class="img-fluid" style="cursor: grab; transition: transform 0.1s ease-out; max-height: 100vh; max-width: 100vw;" draggable="false">
+      <div class="modal-body p-0 d-flex justify-content-center align-items-center overflow-hidden position-relative" id="imageViewerBody">
+        <button id="btnPrevImage" class="btn btn-dark bg-opacity-50 text-white rounded-circle position-absolute start-0 ms-3 ms-md-5 top-50 translate-middle-y shadow" style="z-index: 1055; width: 50px; height: 50px; border: 1px solid rgba(255,255,255,0.2);" onclick="prevImage(event)"><i class="bi bi-chevron-left fs-4"></i></button>
+        <img src="" id="imageViewerImg" class="img-fluid" style="cursor: grab; transition: transform 0.1s ease-out; max-height: 100vh; max-width: 100vw; box-shadow: 0 0 20px rgba(0,0,0,0.5);" draggable="false">
+        <button id="btnNextImage" class="btn btn-dark bg-opacity-50 text-white rounded-circle position-absolute end-0 me-3 me-md-5 top-50 translate-middle-y shadow" style="z-index: 1055; width: 50px; height: 50px; border: 1px solid rgba(255,255,255,0.2);" onclick="nextImage(event)"><i class="bi bi-chevron-right fs-4"></i></button>
       </div>
       <div class="position-absolute bottom-0 w-100 p-3 text-center pb-4" style="z-index: 1055; pointer-events: none;">
           <div class="bg-dark bg-opacity-75 d-inline-block rounded-pill px-4 py-2 text-white shadow-sm small">
-              <i class="bi bi-zoom-in me-1"></i> Rueda del ratón para Zoom | Arrastrar para mover | Doble click para reiniciar
+              <i class="bi bi-arrows-move me-1"></i> Arrastrar | Rueda para Zoom | Flechas teclado | Doble click
           </div>
       </div>
     </div>
@@ -559,22 +656,75 @@ require 'includes/header.php';
 </div>
 
 <script>
+    const galleryImages = [
+        <?php 
+        if(!empty($files)):
+            foreach($files as $f):
+                $ext = pathinfo($f['file_path'], PATHINFO_EXTENSION);
+                if (in_array(strtolower($ext), ['jpg','jpeg','png','gif','webp'])):
+        ?>
+            { src: '<?php echo addslashes(htmlspecialchars($f['file_path'])); ?>', title: '<?php echo addslashes(htmlspecialchars(basename($f['file_path']))); ?>' },
+        <?php 
+                endif;
+            endforeach;
+        endif;
+        ?>
+    ];
+    let currentImageIndex = 0;
+
     let currentScale = 1;
     let isDragging = false;
     let startX, startY, translateX = 0, translateY = 0;
     const imgElement = document.getElementById('imageViewerImg');
     const imageViewerBody = document.getElementById('imageViewerBody');
+    const btnNext = document.getElementById('btnNextImage');
+    const btnPrev = document.getElementById('btnPrevImage');
+    const galleryCounter = document.getElementById('galleryCounter');
 
-    function openImageViewer(src, title) {
-        document.getElementById('imageViewerTitle').innerText = title;
+    function openGallery(index) {
+        if(galleryImages.length === 0) return;
+        currentImageIndex = index;
+        loadImage(currentImageIndex);
+        var myModal = new bootstrap.Modal(document.getElementById('imageViewerModal'));
+        myModal.show();
+    }
+
+    function loadImage(index) {
+        document.getElementById('imageViewerTitle').innerText = galleryImages[index].title;
         currentScale = 1;
         translateX = 0;
         translateY = 0;
         updateTransform();
-        imgElement.src = src;
-        var myModal = new bootstrap.Modal(document.getElementById('imageViewerModal'));
-        myModal.show();
+        imgElement.src = galleryImages[index].src;
+        galleryCounter.innerText = (index + 1) + ' / ' + galleryImages.length;
+        
+        btnPrev.style.display = galleryImages.length > 1 ? 'block' : 'none';
+        btnNext.style.display = galleryImages.length > 1 ? 'block' : 'none';
     }
+
+    function nextImage(event) {
+        if(event) event.stopPropagation();
+        currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+        loadImage(currentImageIndex);
+    }
+
+    function prevImage(event) {
+        if(event) event.stopPropagation();
+        currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+        loadImage(currentImageIndex);
+    }
+
+    // Navegación por teclado
+    document.addEventListener('keydown', function(event) {
+        const modalEl = document.getElementById('imageViewerModal');
+        if (modalEl.classList.contains('show') && galleryImages.length > 1) {
+            if (event.key === 'ArrowRight') {
+                nextImage();
+            } else if (event.key === 'ArrowLeft') {
+                prevImage();
+            }
+        }
+    });
 
     imageViewerBody.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -586,6 +736,7 @@ require 'includes/header.php';
     });
 
     imageViewerBody.addEventListener('mousedown', (e) => {
+        if (e.target === btnNext || e.target === btnPrev || e.target.closest('button')) return;
         isDragging = true;
         startX = e.clientX - translateX;
         startY = e.clientY - translateY;
@@ -616,4 +767,12 @@ require 'includes/header.php';
     }
 </script>
 
-<?php require 'includes/footer.php'; ?>
+<?php 
+if ($user['role'] == 'admin') {
+    require 'admin/includes/admin_footer.php';
+} else {
+    require 'includes/footer.php'; 
+}
+?>
+
+

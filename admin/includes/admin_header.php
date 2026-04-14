@@ -1,0 +1,145 @@
+<?php
+// Evitar ejecución directa y asegurar inicio de sesión
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+    header("Location: ../login.php");
+    exit();
+}
+$user_session = $_SESSION['user'];
+
+// Identificar pagina activa para sidebar
+$currentPage = basename($_SERVER['PHP_SELF']);
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Soporte</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS Base -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <style>
+        body { background-color: #f8f9fa; display: flex; min-height: 100vh; overflow-x: hidden; margin: 0; }
+        
+        /* Sidebar Styles */
+        .admin-sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, #2b3035 0%, #1e2225 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s;
+            position: fixed;
+            height: 100vh;
+            z-index: 1050;
+        }
+        .admin-main-content {
+            margin-left: 280px;
+            width: calc(100% - 280px);
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .sidebar-brand { font-size: 1.5rem; font-weight: 700; padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .sidebar-menu { flex-grow: 1; padding: 1rem 0; overflow-y: auto; }
+        .nav-item-sidebar { margin: 0.25rem 1rem; }
+        
+        .nav-link-sidebar {
+            display: flex;
+            align-items: center;
+            color: rgba(255,255,255,0.7) !important;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .nav-link-sidebar i { margin-right: 0.75rem; font-size: 1.2rem; }
+        .nav-link-sidebar:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
+        .nav-link-sidebar.active { color: #fff !important; background: var(--bs-primary); box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3); }
+
+        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); }
+        
+        /* Mobile handling */
+        @media (max-width: 991.98px) {
+            .admin-sidebar { margin-left: -280px; }
+            .admin-sidebar.show { margin-left: 0; }
+            .admin-main-content { margin-left: 0; width: 100%; padding: 1rem; }
+            .admin-main-content.pushed { margin-left: 280px; width: auto; }
+        }
+        .mobile-toggle { display: none; }
+        @media (max-width: 991.98px) { .mobile-toggle { display: block; } }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="admin-sidebar" id="sidebar">
+    <div class="sidebar-brand text-center d-flex align-items-center justify-content-center">
+        <i class="bi bi-shield-check text-primary me-2"></i>
+        <span>Admin Panel</span>
+    </div>
+    
+    <div class="sidebar-menu">
+        <div class="px-4 py-2 text-uppercase small fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Gestión Principal</div>
+        
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/dashboard.php" class="nav-link-sidebar <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?>">
+                <i class="bi bi-grid-1x2"></i> Dashboard
+            </a>
+        </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/tickets.php" class="nav-link-sidebar <?php echo $currentPage == 'tickets.php' ? 'active' : ''; ?>">
+                <i class="bi bi-ticket-detailed"></i> Control de Tickets
+            </a>
+        </div>
+
+        <div class="px-4 py-2 mt-3 text-uppercase small fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Directorio</div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/usuarios.php" class="nav-link-sidebar <?php echo $currentPage == 'usuarios.php' ? 'active' : ''; ?>">
+                <i class="bi bi-people"></i> Usuarios
+            </a>
+        </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/trabajadores.php" class="nav-link-sidebar <?php echo $currentPage == 'trabajadores.php' ? 'active' : ''; ?>">
+                <i class="bi bi-person-lines-fill"></i> Técnicos / Admins
+            </a>
+        </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/oficinas.php" class="nav-link-sidebar <?php echo $currentPage == 'oficinas.php' ? 'active' : ''; ?>">
+                <i class="bi bi-building"></i> Oficinas
+            </a>
+        </div>
+    </div>
+    
+    <div class="sidebar-footer">
+        <!-- Usuario Perfil Shortcut -->
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/perfil.php" class="nav-link-sidebar bg-dark border border-secondary border-opacity-25 mb-2">
+                <i class="bi bi-person-circle"></i> Mi Perfil
+            </a>
+        </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/logout.php" class="nav-link-sidebar bg-danger bg-opacity-25 text-danger border-0">
+                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+            </a>
+        </div>
+    </div>
+</aside>
+
+<!-- Main Wrapper -->
+<main class="admin-main-content fade-in" id="main-content">
+    
+    <!-- Mobile Toggle Navbar -->
+    <div class="d-flex align-items-center mb-4 mobile-toggle">
+        <button class="btn btn-primary shadow-sm" id="btnToggleSidebar">
+            <i class="bi bi-list"></i> Menú
+        </button>
+        <span class="ms-3 fw-bold text-dark fs-5">Admin Panel</span>
+    </div>

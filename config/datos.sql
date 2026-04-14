@@ -20,21 +20,21 @@ INSERT INTO trabajadores (role, dni, first_name, last_name, email, phone, office
 ('tecnico', '70000003', 'Ana', 'Flores', 'ana.ti@empresa.com', '987654323', 4, '123456'),
 ('tecnico', '70000004', 'Jorge', 'Perez', 'jorge.ti@empresa.com', '987654324', 4, '123456');
 
-INSERT INTO tickets (user_id, technician_id, category, title, description, status, attended_at) VALUES
+INSERT INTO tickets (user_id, technician_id, office_id, category, title, description, tech_comment, status, attended_at) VALUES
 -- Ticket 1 (Atendido)
-(1, 2, 'Software', 'Error en sistema contable', 'No puedo acceder al sistema contable', 'Atendido', NOW()),
+(1, 2, 2, 'Software', 'Error en sistema contable', 'No puedo acceder al sistema contable', 'Se reinició el servidor de la DB.', 'Atendido', NOW()),
 
 -- Ticket 2 (En proceso)
-(2, 3, 'Hardware', 'PC no enciende', 'El equipo no responde al presionar el botón', 'En proceso', NULL),
+(2, 3, 3, 'Hardware', 'PC no enciende', 'El equipo no responde al presionar el botón', '', 'En proceso', NULL),
 
 -- Ticket 3 (Pendiente)
-(3, NULL, 'Internet', 'Sin conexión', 'No hay acceso a internet en mi área', 'Pendiente', NULL),
+(3, NULL, 5, 'Internet', 'Sin conexión', 'No hay acceso a internet en mi área', '', 'Pendiente', NULL),
 
 -- Ticket 4 (Rechazado)
-(4, 4, 'Instalacion', 'Instalar impresora', 'Necesito instalar impresora nueva', 'Rechazado', NOW()),
+(4, 4, 2, 'Instalacion', 'Instalar impresora', 'Necesito instalar impresora nueva', 'No es política del área instalar impresoras personales.', 'Rechazado', NOW()),
 
 -- Ticket 5 (En proceso - asignamos 1 técnico)
-(1, 2, 'Software', 'Office no funciona', 'Word se cierra automáticamente', 'En proceso', NULL);
+(1, 2, 2, 'Software', 'Office no funciona', 'Word se cierra automáticamente', '', 'En proceso', NULL);
 
 
 INSERT INTO ticket_files (ticket_id, file_path) VALUES

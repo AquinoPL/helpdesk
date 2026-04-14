@@ -58,6 +58,12 @@
                             <!-- Dropdown Menu -->
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                                 <li>
+                                    <a class="dropdown-item py-2 fw-medium" href="<?php echo BASE_URL; ?>/perfil.php">
+                                        <i class="bi bi-person-gear me-2"></i> Mi Perfil
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
                                     <a class="dropdown-item text-danger py-2 fw-medium" href="<?php echo BASE_URL; ?>/logout.php">
                                         <i class="bi bi-box-arrow-right me-2"></i> Cerrar sesión
                                     </a>

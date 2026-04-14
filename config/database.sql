@@ -36,7 +36,8 @@ CREATE TABLE oficina (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     location VARCHAR(150),
-    location_detail TEXT
+    location_detail TEXT,
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 -- =========================================
@@ -51,6 +52,7 @@ CREATE TABLE usuarios (
     phone VARCHAR(20),
     office_id INT,
     password TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (office_id) REFERENCES oficina(id)
@@ -69,6 +71,7 @@ CREATE TABLE trabajadores (
     phone VARCHAR(20),
     office_id INT,
     password TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (office_id) REFERENCES oficina(id)
@@ -81,15 +84,18 @@ CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     technician_id INT,
+    office_id INT,
     category ticket_category,
     title VARCHAR(200) NOT NULL,
     description TEXT,
+    tech_comment TEXT,
     status ticket_status NOT NULL DEFAULT 'Pendiente',
     attended_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (user_id) REFERENCES usuarios(id),
-    FOREIGN KEY (technician_id) REFERENCES trabajadores(id)
+    FOREIGN KEY (technician_id) REFERENCES trabajadores(id),
+    FOREIGN KEY (office_id) REFERENCES oficina(id) ON DELETE SET NULL
 );
 
 -- =========================================

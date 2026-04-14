@@ -24,8 +24,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST["password"];
     $password_confirm = $_POST["password_confirm"];
 
-    if (empty($dni) || empty($first_name) || empty($last_name) || empty($password)) {
+    if (empty($dni) || empty($first_name) || empty($last_name) || empty($phone) || empty($office_id) || empty($password)) {
         $error = "Por favor, completa los campos obligatorios.";
+    } elseif (!preg_match('/^[0-9]{8}$/', $dni)) {
+        $error = "El DNI debe contener exactamente 8 dígitos numéricos.";
+    } elseif (!preg_match('/^[0-9]{9}$/', $phone)) {
+        $error = "El teléfono debe contener exactamente 9 dígitos numéricos.";
     } elseif ($password !== $password_confirm) {
         $error = "Las contraseñas no coinciden.";
     } else {
@@ -106,11 +110,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="row g-3">
                 <div class="col-md-6 mb-2">
                     <label class="form-label fw-medium text-dark">DNI <span class="text-danger">*</span></label>
-                    <input type="text" name="dni" class="form-control" placeholder="Ej: 70000000" required autofocus>
+                    <input type="text" name="dni" class="form-control" placeholder="Ej: 70000000" pattern="[0-9]{8}" maxlength="8" title="Debe contener exactamente 8 dígitos" required autofocus>
                 </div>
                 <div class="col-md-6 mb-2">
-                    <label class="form-label fw-medium text-dark">Teléfono</label>
-                    <input type="text" name="phone" class="form-control" placeholder="Opcional">
+                    <label class="form-label fw-medium text-dark">Teléfono <span class="text-danger">*</span></label>
+                    <input type="text" name="phone" class="form-control" placeholder="Ej: 999888777" pattern="[0-9]{9}" maxlength="9" title="Debe contener exactamente 9 dígitos" required>
                 </div>
 
                 <div class="col-md-6 mb-2">
@@ -128,8 +132,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
 
                 <div class="col-12 mb-2">
-                    <label class="form-label fw-medium text-dark">Oficina</label>
-                    <select name="office_id" class="form-select">
+                    <label class="form-label fw-medium text-dark">Oficina <span class="text-danger">*</span></label>
+                    <select name="office_id" class="form-select" required>
                         <option value="">Seleccione una oficina...</option>
                         <?php foreach($offices as $of): ?>
                             <option value="<?php echo $of['id']; ?>"><?php echo htmlspecialchars($of['name']); ?></option>

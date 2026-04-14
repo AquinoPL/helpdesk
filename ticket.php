@@ -12,6 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $category = $_POST['category'];
     $description = trim($_POST['description']);
     $user_id = $_SESSION['user']['id'];
+    $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
 
     if (empty($title) || empty($category) || empty($description)) {
         $error = "Todos los campos obligatorios deben ser completados.";
@@ -19,11 +20,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         try {
             // Insertar directamente con cast explícito para el ENUM
             $stmt = $conn->prepare("
-                INSERT INTO tickets (user_id, category, title, description) 
-                VALUES (?, ?::ticket_category, ?, ?) 
+                INSERT INTO tickets (user_id, category, title, description, office_id) 
+                VALUES (?, ?::ticket_category, ?, ?, ?) 
                 RETURNING id
             ");
-            $stmt->execute([$user_id, $category, $title, $description]);
+            $stmt->execute([$user_id, $category, $title, $description, $office_id]);
             $new_ticket_id = $stmt->fetchColumn();
 
             $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado')");
@@ -62,6 +63,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
+// Fetch active offices for the dropdown
+$stmtOffices = $conn->query("SELECT id, name FROM oficina WHERE is_active = TRUE ORDER BY name ASC");
+$offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
+
 require 'includes/header.php';
 ?>
 
@@ -88,16 +93,32 @@ require 'includes/header.php';
         <div class="card glass-card border-0 p-4">
             <form method="POST" enctype="multipart/form-data">
                 
-                <div class="mb-4">
-                    <label class="form-label fw-medium text-dark">Categoría del problema <span class="text-danger">*</span></label>
-                    <select class="form-select form-select-lg fs-6" name="category" required>
-                        <option value="" selected disabled>Selecciona una categoría...</option>
-                        <option value="Software">Software (Aplicativos, ERP, Office, etc.)</option>
-                        <option value="Hardware">Hardware (Computadoras, periféricos, etc.)</option>
-                        <option value="Internet">Internet (Conectividad, VPN, Wifi)</option>
-                        <option value="Instalacion">Instalación (Nuevos equipos, programas)</option>
-                        <option value="Otro">Otro</option>
-                    </select>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-medium text-dark">Ubicación / Oficina del Problema <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg fs-6" name="office_id" required>
+                            <option value="" disabled>Selecciona la oficina afectada...</option>
+                            <?php 
+                            $userOffice = $_SESSION['user']['office_id'] ?? '';
+                            foreach($offices as $of): 
+                                $selected = ($of['id'] == $userOffice) ? 'selected' : '';
+                            ?>
+                                <option value="<?php echo $of['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($of['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Si este equipo es de otra sede, cámbialo aquí.</div>
+                    </div>
+                    <div class="col-md-6 mt-3 mt-md-0">
+                        <label class="form-label fw-medium text-dark">Categoría del problema <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-lg fs-6" name="category" required>
+                            <option value="" selected disabled>Selecciona una categoría...</option>
+                            <option value="Software">Software (Aplicativos, ERP, Office, etc.)</option>
+                            <option value="Hardware">Hardware (Computadoras, periféricos, etc.)</option>
+                            <option value="Internet">Internet (Conectividad, VPN, Wifi)</option>
+                            <option value="Instalacion">Instalación (Nuevos equipos, programas)</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="mb-4">

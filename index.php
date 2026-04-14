@@ -89,8 +89,15 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
                             <?php foreach ($tickets_ac as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']); ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
+                                $rowClass = '';
+                                if ($t['current_status'] == 'Pendiente') $rowClass = 'table-warning';
+                                elseif ($t['current_status'] == 'En camino') $rowClass = 'table-primary';
+                                elseif ($t['current_status'] == 'En proceso') $rowClass = 'table-info';
+                                elseif ($t['current_status'] == 'Atendido') $rowClass = 'table-success';
+                                elseif ($t['current_status'] == 'Rechazado') $rowClass = 'table-danger';
+                            ?>
+                            <tr class="ticket-row <?php echo $rowClass; ?>" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="ps-4"><span class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                 <td><?php echo htmlspecialchars($t['category']); ?></td>
@@ -130,8 +137,15 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <tbody>
                         <?php if (count($tickets_fi) > 0): ?>
                             <?php foreach ($tickets_fi as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']); ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
+                                $rowClass = '';
+                                if ($t['current_status'] == 'Pendiente') $rowClass = 'table-warning';
+                                elseif ($t['current_status'] == 'En camino') $rowClass = 'table-primary';
+                                elseif ($t['current_status'] == 'En proceso') $rowClass = 'table-info';
+                                elseif ($t['current_status'] == 'Atendido') $rowClass = 'table-success';
+                                elseif ($t['current_status'] == 'Rechazado') $rowClass = 'table-danger';
+                            ?>
+                            <tr class="ticket-row <?php echo $rowClass; ?>" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="ps-4"><span class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                 <td><?php echo htmlspecialchars($t['category']); ?></td>
@@ -194,8 +208,15 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
                             <?php foreach ($tickets_ac as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']); ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
+                                $rowClass = '';
+                                if ($t['current_status'] == 'Pendiente') $rowClass = 'table-warning';
+                                elseif ($t['current_status'] == 'En camino') $rowClass = 'table-primary';
+                                elseif ($t['current_status'] == 'En proceso') $rowClass = 'table-info';
+                                elseif ($t['current_status'] == 'Atendido') $rowClass = 'table-success';
+                                elseif ($t['current_status'] == 'Rechazado') $rowClass = 'table-danger';
+                            ?>
+                            <tr class="ticket-row <?php echo $rowClass; ?>" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="ps-4"><span class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
@@ -235,8 +256,15 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <tbody>
                         <?php if (count($tickets_fi) > 0): ?>
                             <?php foreach ($tickets_fi as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']); ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
+                                $rowClass = '';
+                                if ($t['current_status'] == 'Pendiente') $rowClass = 'table-warning';
+                                elseif ($t['current_status'] == 'En camino') $rowClass = 'table-primary';
+                                elseif ($t['current_status'] == 'En proceso') $rowClass = 'table-info';
+                                elseif ($t['current_status'] == 'Atendido') $rowClass = 'table-success';
+                                elseif ($t['current_status'] == 'Rechazado') $rowClass = 'table-danger';
+                            ?>
+                            <tr class="ticket-row <?php echo $rowClass; ?>" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="ps-4"><span class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
