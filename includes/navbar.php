@@ -70,6 +70,12 @@
                                 </li>
                             </ul>
                         </li>
+                    <?php else: ?>
+                        <li class="nav-item">
+                            <a class="btn btn-light text-primary fw-bold px-3 py-2 ms-lg-2" href="<?php echo BASE_URL; ?>/login.php">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                            </a>
+                        </li>
                     <?php endif; ?>
                 </ul>
             </div>

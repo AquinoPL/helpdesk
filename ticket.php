@@ -96,16 +96,23 @@ require 'includes/header.php';
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <label class="form-label fw-medium text-dark">Ubicación / Oficina del Problema <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-lg fs-6" name="office_id" required>
-                            <option value="" disabled>Selecciona la oficina afectada...</option>
-                            <?php 
-                            $userOffice = $_SESSION['user']['office_id'] ?? '';
-                            foreach($offices as $of): 
-                                $selected = ($of['id'] == $userOffice) ? 'selected' : '';
-                            ?>
-                                <option value="<?php echo $of['id']; ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($of['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?php 
+                        $userOffice = $_SESSION['user']['office_id'] ?? '';
+                        $userOfficeName = '';
+                        foreach($offices as $of) {
+                            if ($of['id'] == $userOffice) {
+                                $userOfficeName = $of['name'];
+                                break;
+                            }
+                        }
+                        ?>
+                        <div class="input-group">
+                            <input type="hidden" name="office_id" id="ticket_office_id" value="<?php echo htmlspecialchars($userOffice); ?>" required>
+                            <input type="text" class="form-control form-control-lg bg-white fs-6" id="ticket_office_display" value="<?php echo htmlspecialchars($userOfficeName); ?>" placeholder="Haz clic para buscar oficina..." readonly onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')" style="cursor: pointer;">
+                            <button type="button" class="btn btn-outline-primary" onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
                         <div class="form-text">Si este equipo es de otra sede, cámbialo aquí.</div>
                     </div>
                     <div class="col-md-6 mt-3 mt-md-0">
@@ -245,5 +252,74 @@ require 'includes/header.php';
 
     </div>
 </div>
+
+<!-- Office Search Modal -->
+<div class="modal fade" id="officeSearchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary"><i class="bi bi-building me-2"></i> Buscar Oficina</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="officeSearchInput" class="form-control form-control-lg" placeholder="Escriba el nombre de la oficina..." autocomplete="off">
+                </div>
+                <div id="officeSearchResults" class="list-group overflow-auto" style="max-height: 250px;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let targetOfficeIdInput = '';
+let targetOfficeDisplayInput = '';
+
+function openOfficeSearch(idField, displayField) {
+    targetOfficeIdInput = idField;
+    targetOfficeDisplayInput = displayField;
+    const modal = new bootstrap.Modal(document.getElementById('officeSearchModal'));
+    document.getElementById('officeSearchInput').value = '';
+    document.getElementById('officeSearchResults').innerHTML = '';
+    modal.show();
+    setTimeout(() => document.getElementById('officeSearchInput').focus(), 500);
+}
+
+document.getElementById('officeSearchInput').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    if (query.length < 2) {
+        document.getElementById('officeSearchResults').innerHTML = '';
+        return;
+    }
+    
+    fetch('ajax_search_office.php?q=' + encodeURIComponent(query))
+        .then(response => response.json())
+        .then(data => {
+            const results = document.getElementById('officeSearchResults');
+            results.innerHTML = '';
+            if (data.length === 0) {
+                results.innerHTML = '<div class="list-group-item text-muted text-center py-3">No se encontraron oficinas</div>';
+            } else {
+                data.forEach(of => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action py-3';
+                    btn.innerHTML = `<div class="d-flex w-100 justify-content-between"><h6 class="mb-1 fw-bold text-dark">${of.name}</h6></div>`;
+                    if (of.location) btn.innerHTML += `<small class="text-muted"><i class="bi bi-geo-alt me-1"></i> ${of.location}</small>`;
+                    
+                    btn.onclick = () => {
+                        document.getElementById(targetOfficeIdInput).value = of.id;
+                        document.getElementById(targetOfficeDisplayInput).value = of.name;
+                        bootstrap.Modal.getInstance(document.getElementById('officeSearchModal')).hide();
+                    };
+                    results.appendChild(btn);
+                });
+            }
+        })
+        .catch(error => console.error('Error:', error));
+});
+</script>
 
 <?php require 'includes/footer.php'; ?>

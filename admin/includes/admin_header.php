@@ -99,6 +99,16 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <i class="bi bi-ticket-detailed"></i> Control de Tickets
             </a>
         </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/crear_ticket.php" class="nav-link-sidebar <?php echo $currentPage == 'crear_ticket.php' ? 'active' : ''; ?>">
+                <i class="bi bi-plus-circle"></i> Crear Ticket
+            </a>
+        </div>
+        <div class="nav-item-sidebar">
+            <a href="<?php echo BASE_URL; ?>/admin/vista_tecnico.php" class="nav-link-sidebar <?php echo $currentPage == 'vista_tecnico.php' ? 'active' : ''; ?>">
+                <i class="bi bi-eye"></i> Ver como Técnico
+            </a>
+        </div>
 
         <div class="px-4 py-2 mt-3 text-uppercase small fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Directorio</div>
         <div class="nav-item-sidebar">
