@@ -47,8 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-$stmt = $conn->query("SELECT * FROM oficina ORDER BY id DESC");
+$stmt = $conn->query("SELECT * FROM oficina WHERE is_active = TRUE ORDER BY id DESC");
 $offices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt_inactive = $conn->query("SELECT * FROM oficina WHERE is_active = FALSE ORDER BY id DESC");
+$offices_inactive = $stmt_inactive->fetchAll(PDO::FETCH_ASSOC);
 
 require 'includes/admin_header.php';
 ?>
@@ -127,6 +130,52 @@ require 'includes/admin_header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr><td colspan="6" class="text-center py-4 text-muted">No existen oficinas registradas.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-5 mb-3 d-flex align-items-center">
+    <h4 class="fw-bold text-muted mb-0"><i class="bi bi-archive me-2"></i>Historial de Oficinas Suspendidas</h4>
+    <hr class="flex-grow-1 ms-3">
+</div>
+
+<div class="card glass-card border-0 opacity-75">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th class="ps-4">ID</th>
+                        <th>Nombre</th>
+                        <th>Ubicación</th>
+                        <th>Detalle</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableInactiveBody">
+                    <?php if(count($offices_inactive) > 0): ?>
+                        <?php foreach ($offices_inactive as $o): ?>
+                        <tr>
+                            <td class="ps-4 text-muted opacity-75">#<?php echo $o['id']; ?></td>
+                            <td class="fw-bold text-secondary"><?php echo htmlspecialchars($o['name']); ?></td>
+                            <td class="text-muted"><?php echo htmlspecialchars($o['location'] ?? ''); ?></td>
+                            <td class="text-muted small text-truncate" style="max-width: 200px;"><?php echo htmlspecialchars($o['location_detail'] ?? ''); ?></td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-25 text-secondary">Inactiva</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-secondary" title="Editar / Reactivar" onclick='openEdit(<?php echo json_encode($o); ?>)'>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reactivar
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">No existen oficinas suspendidas.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -218,9 +267,20 @@ function openEdit(o) {
 // Búsqueda JS en vivo para la tabla
 document.getElementById('tableFilter').addEventListener('keyup', function() {
     let filter = this.value.toLowerCase();
-    let rows = document.querySelectorAll('#dataTableBody tr');
     
-    rows.forEach(row => {
+    // Activos
+    let rowsAct = document.querySelectorAll('#dataTableBody tr');
+    rowsAct.forEach(row => {
+        if(row.innerText.toLowerCase().includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Inactivos
+    let rowsIna = document.querySelectorAll('#dataTableInactiveBody tr');
+    rowsIna.forEach(row => {
         if(row.innerText.toLowerCase().includes(filter)) {
             row.style.display = '';
         } else {

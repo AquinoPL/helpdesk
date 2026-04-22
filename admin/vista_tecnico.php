@@ -4,12 +4,20 @@ require '../config/database.php';
 restrict_access(['admin']);
 require 'includes/admin_header.php';
 
-// Limite de paginacion (simulando lo de index.php)
 $limit = 10;
 $page_active = isset($_GET['pa']) ? max(1, (int) $_GET['pa']) : 1;
 $page_finished = isset($_GET['pf']) ? max(1, (int) $_GET['pf']) : 1;
 $offset_ac = ($page_active - 1) * $limit;
 $offset_fi = ($page_finished - 1) * $limit;
+
+// Obtener la lista de técnicos y sus métricas superficiales si las queremos (ticket count)
+$stmtT = $conn->query("
+    SELECT tr.*, 
+           (SELECT COUNT(*) FROM tickets t WHERE t.technician_id = tr.id AND t.status NOT IN ('Atendido', 'Rechazado')) as active_count,
+           (SELECT COUNT(*) FROM tickets t WHERE t.technician_id = tr.id AND t.status IN ('Atendido', 'Rechazado')) as finished_count
+    FROM trabajadores tr WHERE role = 'tecnico' ORDER BY first_name
+");
+$technicians = $stmtT->fetchAll(PDO::FETCH_ASSOC);
 
 function renderPagination($current, $total, $paramName, $otherParamName, $otherValue, $techId)
 {
@@ -24,10 +32,6 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     return $html;
 }
 
-// Obtener lista de técnicos
-$stmtTechs = $conn->query("SELECT id, first_name, last_name, dni FROM trabajadores WHERE role = 'tecnico' AND is_active = TRUE ORDER BY first_name ASC");
-$technicians = $stmtTechs->fetchAll(PDO::FETCH_ASSOC);
-
 $tech_id = isset($_GET['tech_id']) ? (int) $_GET['tech_id'] : null;
 
 $tickets_ac = [];
@@ -35,12 +39,13 @@ $tickets_fi = [];
 $pages_ac = 0;
 $pages_fi = 0;
 $selected_tech_name = "";
+$selected_tech_dni = "";
 
 if ($tech_id) {
-    // Buscar nombre del tecnico seleccionado
     foreach ($technicians as $tech) {
         if ($tech['id'] == $tech_id) {
             $selected_tech_name = $tech['first_name'] . ' ' . $tech['last_name'];
+            $selected_tech_dni = $tech['dni'];
             break;
         }
     }
@@ -70,37 +75,54 @@ if ($tech_id) {
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="fw-bold mb-0">Vista de Técnico</h2>
-        <p class="text-muted mb-0">Visualiza y gestiona el panel desde la perspectiva de un técnico.</p>
+        <p class="text-muted mb-0">Supervisa las bandejas o asume el rol interactivo de tus técnicos.</p>
     </div>
+    <?php if ($tech_id): ?>
+    <div>
+        <a href="vista_tecnico.php" class="btn btn-outline-secondary"><i class="bi bi-grid me-2"></i>Volver al Directorio</a>
+    </div>
+    <?php endif; ?>
 </div>
 
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4 bg-light rounded">
-        <form method="GET" class="d-flex align-items-end gap-3">
-            <div class="flex-grow-1" style="max-width: 400px;">
-                <label class="form-label fw-medium">Seleccionar Técnico</label>
-                <select name="tech_id" class="form-select form-select-lg shadow-sm" required
-                    onchange="this.form.submit()">
-                    <option value="" disabled <?php echo !$tech_id ? 'selected' : ''; ?>>Elige un técnico de la lista...
-                    </option>
-                    <?php foreach ($technicians as $tech): ?>
-                        <option value="<?php echo $tech['id']; ?>" <?php echo ($tech_id == $tech['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($tech['first_name'] . ' ' . $tech['last_name'] . ' - DNI: ' . $tech['dni']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <?php if ($tech_id): ?>
-                <div class="mb-2 ms-3">
-                    <span class="badge bg-primary fs-6"><i class="bi bi-person-check-fill me-1"></i> Visualizando a:
-                        <?php echo htmlspecialchars($selected_tech_name); ?></span>
+<?php if (!$tech_id): ?>
+    <!-- DIRECTORIO DE TÉCNICOS (GRID UI) -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mb-5">
+        <?php foreach ($technicians as $tech): ?>
+        <div class="col">
+            <a href="?tech_id=<?php echo $tech['id']; ?>" class="card h-100 border-0 shadow-sm text-decoration-none glass-card stat-card-clickable" style="transition: transform 0.2s, box-shadow 0.2s;">
+                <div class="card-body p-4 text-center">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                        <i class="bi bi-person-workspace fs-1"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1"><?php echo htmlspecialchars($tech['first_name'] . ' ' . $tech['last_name']); ?></h5>
+                    <p class="text-muted small mb-3">DNI: <?php echo htmlspecialchars($tech['dni']); ?></p>
+                    
+                    <div class="d-flex justify-content-center gap-3">
+                        <div class="badge bg-light text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill">
+                            <i class="bi bi-activity me-1"></i> <?php echo $tech['active_count']; ?> Activos
+                        </div>
+                        <div class="badge bg-light text-secondary border border-secondary border-opacity-25 px-3 py-2 rounded-pill">
+                            <i class="bi bi-check2-all me-1"></i> <?php echo $tech['finished_count']; ?> Finalizados
+                        </div>
+                    </div>
                 </div>
-            <?php endif; ?>
-        </form>
+            </a>
+        </div>
+        <?php endforeach; ?>
     </div>
-</div>
-
-<?php if ($tech_id): ?>
+<?php else: ?>
+    <!-- VISTA DEL TÉCNICO SELECCIONADO -->
+    <div class="card border-0 shadow-sm mb-4 bg-primary text-white bg-opacity-75" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+        <div class="card-body p-4 d-flex align-items-center">
+            <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center me-4 shadow-sm" style="width: 60px; height: 60px;">
+                <i class="bi bi-person-fill fs-2"></i>
+            </div>
+            <div>
+                <h4 class="fw-bold mb-1">Bandeja de: <?php echo htmlspecialchars($selected_tech_name); ?></h4>
+                <p class="mb-0 text-white-50"><i class="bi bi-shield-lock me-1"></i> Tienes permiso para operar en su nombre.</p>
+            </div>
+        </div>
+    </div>
 
     <!-- TABLA ACTIVOS: TECNICO -->
     <div class="card glass-card border-0 mb-4 shadow-sm">
@@ -122,34 +144,22 @@ if ($tech_id) {
                     </thead>
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
-                            <?php foreach ($tickets_ac as $t):
+                            <?php foreach ($tickets_ac as $t): 
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                                $rowClass = '';
-                                if ($t['current_status'] == 'Pendiente')
-                                    $rowClass = 'table-warning';
-                                elseif ($t['current_status'] == 'En camino')
-                                    $rowClass = 'table-primary';
-                                elseif ($t['current_status'] == 'En proceso')
-                                    $rowClass = 'table-info';
-                                ?>
-                                <tr class="ticket-row <?php echo $rowClass; ?>"
-                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                    <td class="ps-4"><span
-                                            class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span>
-                                    </td>
+                            ?>
+                                <tr class="ticket-row"
+                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                    <td><span
-                                            class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span>
-                                    </td>
-                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>"
-                                            class="btn btn-sm btn-primary rounded-pill px-3">Gestionar</a></td>
+                                    <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-primary rounded-pill px-3">Impersonar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">El técnico no tiene tickets activos.</td>
+                                <td colspan="6" class="text-center py-5 text-muted">El técnico no tiene tickets activos en esta bandeja.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -181,31 +191,20 @@ if ($tech_id) {
                         <?php if (count($tickets_fi) > 0): ?>
                             <?php foreach ($tickets_fi as $t):
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                                $rowClass = '';
-                                if ($t['current_status'] == 'Atendido')
-                                    $rowClass = 'table-success';
-                                elseif ($t['current_status'] == 'Rechazado')
-                                    $rowClass = 'table-danger';
                                 ?>
-                                <tr class="ticket-row <?php echo $rowClass; ?>"
-                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                    <td class="ps-4"><span
-                                            class="text-muted fw-bold">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span>
-                                    </td>
+                                <tr class="ticket-row"
+                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                    <td><span
-                                            class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span>
-                                    </td>
-                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>"
-                                            class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
+                                    <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">El técnico no tiene tickets finalizados.
-                                </td>
+                                <td colspan="6" class="text-center py-5 text-muted">El técnico no tiene tickets finalizados en el historial.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -214,12 +213,13 @@ if ($tech_id) {
             <?php echo renderPagination($page_finished, $pages_fi, 'pf', 'pa', $page_active, $tech_id); ?>
         </div>
     </div>
-
-<?php else: ?>
-    <div class="text-center py-5">
-        <i class="bi bi-person-bounding-box text-muted" style="font-size: 4rem;"></i>
-        <h4 class="mt-3 text-muted">Por favor seleccione un técnico para visualizar su panel.</h4>
-    </div>
 <?php endif; ?>
+
+<style>
+.stat-card-clickable:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+</style>
 
 <?php require 'includes/admin_footer.php'; ?>

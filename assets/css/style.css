@@ -40,11 +40,11 @@ body {
 }
 
 /* Status Badges Custom Colors */
-.badge-Pendiente { background-color: #ffc107; color: #000; }
-.badge-En-camino { background-color: #6f42c1; color: #fff; }
-.badge-En-proceso { background-color: #0dcaf0; color: #000; }
-.badge-Atendido { background-color: #198754; color: #fff; }
-.badge-Rechazado { background-color: #dc3545; color: #fff; }
+.badge-Pendiente { background-color: #6C757D !important; color: #ffffff !important; }
+.badge-En-camino { background-color: #FD7E14 !important; color: #ffffff !important; }
+.badge-En-proceso { background-color: #FFC107 !important; color: #212529 !important; }
+.badge-Atendido { background-color: #28A745 !important; color: #ffffff !important; }
+.badge-Rechazado { background-color: #DC3545 !important; color: #ffffff !important; }
 
 .text-purple { color: #6f42c1 !important; }
 

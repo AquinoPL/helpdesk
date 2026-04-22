@@ -80,9 +80,19 @@ $stmt = $conn->query("
     SELECT t.*, o.name as office_name 
     FROM trabajadores t 
     LEFT JOIN oficina o ON t.office_id = o.id 
+    WHERE t.is_active = TRUE
     ORDER BY t.role ASC, t.id DESC
 ");
 $trabajadores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt_inactive = $conn->query("
+    SELECT t.*, o.name as office_name 
+    FROM trabajadores t 
+    LEFT JOIN oficina o ON t.office_id = o.id 
+    WHERE t.is_active = FALSE
+    ORDER BY t.role ASC, t.id DESC
+");
+$trabajadores_inactive = $stmt_inactive->fetchAll(PDO::FETCH_ASSOC);
 
 $stmtOffices = $conn->query("SELECT id, name FROM oficina WHERE is_active = TRUE ORDER BY name ASC");
 $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
@@ -177,6 +187,65 @@ require 'includes/admin_header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr><td colspan="6" class="text-center py-4 text-muted">No existen trabajadores registrados.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-5 mb-3 d-flex align-items-center">
+    <h4 class="fw-bold text-muted mb-0"><i class="bi bi-archive me-2"></i>Historial de Personal Suspendido</h4>
+    <hr class="flex-grow-1 ms-3">
+</div>
+
+<div class="card glass-card border-0 opacity-75">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th class="ps-4">Rol / DNI</th>
+                        <th>Nombres Completos</th>
+                        <th>Contacto</th>
+                        <th>Oficina Asignada</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableInactiveBody">
+                    <?php if(count($trabajadores_inactive) > 0): ?>
+                        <?php foreach ($trabajadores_inactive as $t): ?>
+                        <tr>
+                            <td class="ps-4 opacity-75">
+                                <?php if($t['role'] == 'admin'): ?>
+                                    <span class="badge bg-secondary mb-1"><i class="bi bi-shield-lock me-1"></i> Admin</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary mb-1"><i class="bi bi-tools me-1"></i> Técnico</span>
+                                <?php endif; ?>
+                                <div class="text-muted fw-bold small">#<?php echo htmlspecialchars($t['dni']); ?></div>
+                            </td>
+                            <td class="fw-bold text-secondary"><?php echo htmlspecialchars($t['first_name'].' '.$t['last_name']); ?></td>
+                            <td class="small text-muted">
+                                <?php if($t['email']): ?><div><i class="bi bi-envelope me-1"></i><?php echo htmlspecialchars($t['email']); ?></div><?php endif; ?>
+                                <?php if($t['phone']): ?><div><i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($t['phone']); ?></div><?php endif; ?>
+                            </td>
+                            <td class="text-muted"><?php echo htmlspecialchars($t['office_name'] ?? 'General / Sin Asignar'); ?></td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-25 text-secondary">Suspendido</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-secondary" title="Editar / Reactivar" onclick='openEdit(<?php 
+                                    $t_safe = $t; unset($t_safe['password']);
+                                    echo json_encode($t_safe); 
+                                ?>)'>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reactivar
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">No existe personal suspendido.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -334,9 +403,20 @@ function openEdit(t) {
 // Búsqueda JS en vivo para la tabla
 document.getElementById('tableFilter').addEventListener('keyup', function() {
     let filter = this.value.toLowerCase();
-    let rows = document.querySelectorAll('#dataTableBody tr');
     
-    rows.forEach(row => {
+    // Activos
+    let rowsAct = document.querySelectorAll('#dataTableBody tr');
+    rowsAct.forEach(row => {
+        if(row.innerText.toLowerCase().includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Inactivos
+    let rowsIna = document.querySelectorAll('#dataTableInactiveBody tr');
+    rowsIna.forEach(row => {
         if(row.innerText.toLowerCase().includes(filter)) {
             row.style.display = '';
         } else {

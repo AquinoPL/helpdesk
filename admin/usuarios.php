@@ -72,9 +72,19 @@ $stmt = $conn->query("
     SELECT u.*, o.name as office_name 
     FROM usuarios u 
     LEFT JOIN oficina o ON u.office_id = o.id 
+    WHERE u.is_active = TRUE
     ORDER BY u.id DESC
 ");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt_inactive = $conn->query("
+    SELECT u.*, o.name as office_name 
+    FROM usuarios u 
+    LEFT JOIN oficina o ON u.office_id = o.id 
+    WHERE u.is_active = FALSE
+    ORDER BY u.id DESC
+");
+$users_inactive = $stmt_inactive->fetchAll(PDO::FETCH_ASSOC);
 
 $stmtOffices = $conn->query("SELECT id, name FROM oficina WHERE is_active = TRUE ORDER BY name ASC");
 $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
@@ -166,6 +176,61 @@ require 'includes/admin_header.php';
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr><td colspan="6" class="text-center py-4 text-muted">No existen usuarios activos.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-5 mb-3 d-flex align-items-center">
+    <h4 class="fw-bold text-muted mb-0"><i class="bi bi-archive me-2"></i>Historial de Cuentas Suspendidas</h4>
+    <hr class="flex-grow-1 ms-3">
+</div>
+
+<div class="card glass-card border-0 opacity-75">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted">
+                    <tr>
+                        <th class="ps-4">DNI</th>
+                        <th>Nombres Completos</th>
+                        <th>Contacto</th>
+                        <th>Oficina</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableInactiveBody">
+                    <?php if(count($users_inactive) > 0): ?>
+                        <?php foreach ($users_inactive as $u): ?>
+                        <tr>
+                            <td class="ps-4 fw-medium text-muted">
+                                <i class="bi bi-person-badge me-1"></i> <?php echo htmlspecialchars($u['dni']); ?>
+                            </td>
+                            <td class="fw-bold text-secondary"><?php echo htmlspecialchars($u['first_name'].' '.$u['last_name']); ?></td>
+                            <td class="small text-muted">
+                                <?php if($u['email']): ?><div><i class="bi bi-envelope me-1"></i><?php echo htmlspecialchars($u['email']); ?></div><?php endif; ?>
+                                <?php if($u['phone']): ?><div><i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($u['phone']); ?></div><?php endif; ?>
+                            </td>
+                            <td class="text-muted"><?php echo htmlspecialchars($u['office_name'] ?? 'Sin Oficina'); ?></td>
+                            <td>
+                                <span class="badge bg-danger bg-opacity-25 text-danger">Suspendido</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <!-- Botones de Opciones -->
+                                <button class="btn btn-sm btn-outline-secondary" title="Editar / Reactivar" onclick='openEdit(<?php 
+                                    $u_safe = $u; unset($u_safe['password']);
+                                    echo json_encode($u_safe); 
+                                ?>)'>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reactivar
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">No existen usuarios suspendidos.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -308,9 +373,20 @@ function openEdit(u) {
 // Búsqueda JS en vivo para la tabla
 document.getElementById('tableFilter').addEventListener('keyup', function() {
     let filter = this.value.toLowerCase();
-    let rows = document.querySelectorAll('#dataTableBody tr');
     
-    rows.forEach(row => {
+    // Activos
+    let rowsAct = document.querySelectorAll('#dataTableBody tr');
+    rowsAct.forEach(row => {
+        if(row.innerText.toLowerCase().includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Inactivos
+    let rowsIna = document.querySelectorAll('#dataTableInactiveBody tr');
+    rowsIna.forEach(row => {
         if(row.innerText.toLowerCase().includes(filter)) {
             row.style.display = '';
         } else {

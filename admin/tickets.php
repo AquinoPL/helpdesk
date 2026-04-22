@@ -132,7 +132,7 @@ function getQueryStringParams($newPage) {
                 </select>
             </div>
             <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="bi bi-funnel me-1"></i> Filtrar Grilla</button>
+                <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="bi bi-funnel me-1"></i> Filtrar</button>
             </div>
         </form>
     </div>
@@ -157,22 +157,10 @@ function getQueryStringParams($newPage) {
                 <tbody>
                     <?php if (count($tickets) > 0): ?>
                         <?php foreach ($tickets as $t): 
-                            $badgeClass = 'bg-' . str_replace(' ', '-', strtolower($t['current_status']));
-                            if($t['current_status'] == 'Pendiente') $badgeClass = 'bg-warning text-dark';
-                            elseif($t['current_status'] == 'En camino') $badgeClass = 'bg-primary';
-                            elseif($t['current_status'] == 'En proceso') $badgeClass = 'bg-info text-dark';
-                            elseif($t['current_status'] == 'Atendido') $badgeClass = 'bg-success';
-                            elseif($t['current_status'] == 'Rechazado') $badgeClass = 'bg-danger';
-                            
-                            $rowClass = '';
-                            if ($t['current_status'] == 'Pendiente') $rowClass = 'table-warning';
-                            elseif ($t['current_status'] == 'En camino') $rowClass = 'table-primary';
-                            elseif ($t['current_status'] == 'En proceso') $rowClass = 'table-info';
-                            elseif ($t['current_status'] == 'Atendido') $rowClass = 'table-success';
-                            elseif ($t['current_status'] == 'Rechazado') $rowClass = 'table-danger';
+                            $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                         ?>
-                        <tr class="ticket-row <?php echo $rowClass; ?>" style="cursor: pointer;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                            <td class="ps-4"><span class="fw-bold fs-6">#<?php echo str_pad($t['id'], 4, '0', STR_PAD_LEFT); ?></span></td>
+                        <tr class="ticket-row" style="cursor: pointer;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <td class="ps-4"><span class="fw-bold fs-6 text-muted"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
                             <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['user_fname'] . ' ' . $t['user_lname']); ?></td>
                             <td class="<?php echo $t['technician_id'] ? 'text-primary fw-medium' : 'text-muted fst-italic'; ?>">
                                 <?php echo $t['technician_id'] ? htmlspecialchars($t['tech_fname'] . ' ' . $t['tech_lname']) : 'No asignado'; ?>
@@ -181,12 +169,12 @@ function getQueryStringParams($newPage) {
                                 <div class="fw-bold text-dark text-truncate" style="max-width: 200px;" title="<?php echo htmlspecialchars($t['title']); ?>"><?php echo htmlspecialchars($t['title']); ?></div>
                                 <div class="small text-muted"><?php echo htmlspecialchars($t['category']); ?></div>
                             </td>
-                            <td><span class="badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                            <td><span class="badge status-badge <?php echo $badgeClass; ?> shadow-sm"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                             <td class="small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
                             <td class="text-end pe-4 position-relative" style="z-index: 2;">
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1" title="Editar detalles" onclick='event.stopPropagation(); openEditTicket(<?php echo json_encode(["id" => $t['id'], "title" => $t['title'], "category" => $t['category'], "description" => $t['description'], "tech_comment" => $t['tech_comment']]); ?>)'>
+                                <a href="editar_ticket.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1" title="Editar detalles">
                                     <i class="bi bi-pencil"></i>
-                                </button>
+                                </a>
                                 <a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-dark rounded-pill px-3">Entrar</a>
                             </td>
                         </tr>
@@ -225,60 +213,3 @@ function getQueryStringParams($newPage) {
 </div>
 
 <?php require 'includes/admin_footer.php'; ?>
-
-<!-- Modal Editar Detalles del Ticket -->
-<div class="modal fade" id="modalEditTicket" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header text-white bg-primary">
-        <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edición Rápida del Ticket</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="POST" onsubmit="confirmAction(event, this, 'modificar y actualizar');">
-          <div class="modal-body">
-              <input type="hidden" name="action" value="edit_ticket">
-              <input type="hidden" name="ticket_id" id="edit_ticket_id">
-              <div class="mb-3">
-                  <label class="form-label fw-bold display-block">Título del Ticket</label>
-                  <input type="text" class="form-control" name="title" id="edit_title" required>
-              </div>
-              <div class="mb-3">
-                  <label class="form-label fw-bold">Categoría</label>
-                  <select name="category" id="edit_category" class="form-select" required>
-                      <option value="Hardware">Hardware</option>
-                      <option value="Software">Software</option>
-                      <option value="Redes">Redes / Conectividad</option>
-                      <option value="Periféricos">Periféricos (Impresoras, etc)</option>
-                      <option value="Sistemas y Cuentas">Sistemas, Accesos y Cuentas</option>
-                      <option value="Otro">Otro</option>
-                  </select>
-              </div>
-              <div class="mb-3">
-                  <label class="form-label fw-bold">Descripción / Problema</label>
-                  <textarea class="form-control" name="description" id="edit_description" rows="4" required></textarea>
-              </div>
-              <div class="mb-3">
-                  <label class="form-label fw-bold">Reporte / Comentario del Técnico</label>
-                  <textarea class="form-control" name="tech_comment" id="edit_tech_comment" rows="4"></textarea>
-                  <small class="text-muted">Puedes editar el reporte técnico desde aquí directamente.</small>
-              </div>
-          </div>
-          <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-save me-1"></i> Guardar Cambios</button>
-          </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-function openEditTicket(data) {
-    document.getElementById('edit_ticket_id').value = data.id;
-    document.getElementById('edit_title').value = data.title;
-    document.getElementById('edit_category').value = data.category;
-    document.getElementById('edit_description').value = data.description;
-    document.getElementById('edit_tech_comment').value = data.tech_comment || '';
-    new bootstrap.Modal(document.getElementById('modalEditTicket')).show();
-}
-</script>

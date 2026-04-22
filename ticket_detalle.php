@@ -65,18 +65,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
 
 // La edición se movió a admin/tickets.php
 
-        if ($_POST['action'] == 'reaccionar' && $user['role'] == 'tecnico') {
+        if ($_POST['action'] == 'reaccionar' && ($user['role'] == 'tecnico' || $user['role'] == 'admin')) {
             $status = $_POST['status'];
             $tech_comment = trim($_POST['tech_comment'] ?? '');
+            $operative_tech_id = isset($_POST['impersonate_tech']) ? (int)$_POST['impersonate_tech'] : $user['id'];
             
             $stmt = $conn->prepare("UPDATE tickets SET status = ?::ticket_status, tech_comment = ?, attended_at = CASE WHEN ? = 'Atendido' THEN NOW() ELSE attended_at END WHERE id = ? AND technician_id = ?");
-            $stmt->execute([$status, $tech_comment, $status, $ticket_id, $user['id']]);
+            $stmt->execute([$status, $tech_comment, $status, $ticket_id, $operative_tech_id]);
 
             $comment = "El técnico actualizó el estado a " . $status;
             $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, ?)");
-            $stmtHist->execute([$ticket_id, $status, $user['id'], $comment]);
+            $stmtHist->execute([$ticket_id, $status, $operative_tech_id, $comment]);
 
-            header("Location: ticket_detalle.php?id=$ticket_id&success=updated");
+            $redirect_url = "ticket_detalle.php?id=$ticket_id&success=updated" . (isset($_POST['impersonate_tech']) ? "&impersonate_tech=" . $operative_tech_id : "");
+            header("Location: $redirect_url");
             exit();
         }
     } catch (PDOException $e) {
@@ -84,9 +86,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     }
 }
 
+// Lógica Impersonation Admin -> Tecnico
+$is_impersonating = false;
+$impersonated_tech_id = null;
+if ($user['role'] == 'admin' && isset($_GET['impersonate_tech'])) {
+    $is_impersonating = true;
+    $impersonated_tech_id = (int)$_GET['impersonate_tech'];
+}
+
+
 // Obtener datos principales del ticket
 $stmt = $conn->prepare("
-    SELECT t.*, u.first_name, u.last_name, u.email, u.phone, 
+    SELECT t.*, u.first_name, u.last_name, u.email, u.phone, u.dni,
            COALESCE(tofc.name, uofc.name) as office_name
     FROM tickets t
     JOIN usuarios u ON t.user_id = u.id
@@ -133,12 +144,14 @@ if ($user['role'] == 'admin') {
     $tecnicos = $stmtT->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Si es técnico, verificar si está asignado a este ticket para permitirle editar
+// Check assignment
 $is_assigned = false;
 $tech_status = '';
-if ($user['role'] == 'tecnico') {
+$check_user_id = $is_impersonating ? $impersonated_tech_id : $user['id'];
+
+if ($user['role'] == 'tecnico' || $is_impersonating) {
     $stmtCh = $conn->prepare("SELECT status FROM tickets WHERE id = ? AND technician_id = ?");
-    $stmtCh->execute([$ticket_id, $user['id']]);
+    $stmtCh->execute([$ticket_id, $check_user_id]);
     $det = $stmtCh->fetch(PDO::FETCH_ASSOC);
     if ($det) {
         $is_assigned = true;
@@ -163,19 +176,24 @@ if ($user['role'] == 'admin') {
 }
 ?>
 
-<div class="row pt-2 mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 mt-2">
+    <div class="d-flex align-items-center mb-3 mb-md-0">
+        <button type="button" onclick="history.back()" class="btn btn-outline-secondary rounded-circle me-3 flex-shrink-0" style="width: 40px; height: 40px; padding: 0; line-height:38px; text-align:center;" title="Volver atrás">
+            <i class="bi bi-arrow-left"></i>
+        </button>
         <div>
-            <a href="<?php echo $user['role'] == 'admin' ? 'admin/dashboard.php' : 'index.php'; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3 mb-2"><i class="bi bi-arrow-left me-1"></i> Volver</a>
-            <h2 class="fw-bold mb-0 text-dark">
-                Ticket #<?php echo str_pad($ticket['id'], 4, '0', STR_PAD_LEFT); ?>
-                <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> ms-2 mt-n2 align-middle" style="font-size: 0.5em;"><?php echo htmlspecialchars($current_status); ?></span>
-            </h2>
+            <h2 class="fw-bold mb-0">Seguimiento de Ticket <span class="text-primary"><?php echo date('Y', strtotime($ticket['created_at'])) . str_pad($ticket['id'], 3, '0', STR_PAD_LEFT); ?></span></h2>
+            <p class="text-muted mb-0"><i class="spinner-grow spinner-grow-sm text-success me-1" style="width: 0.8rem; height: 0.8rem;"></i> Actualizado en tiempo real</p>
         </div>
-        <div class="text-end text-muted small">
-            <div><strong>Creado:</strong> <?php echo date('d/m/Y H:i', strtotime($ticket['created_at'])); ?></div>
-            <div><strong>Categoría:</strong> <?php echo htmlspecialchars($ticket['category']); ?></div>
-        </div>
+    </div>
+    
+    <div class="text-md-end d-flex align-items-center justify-content-md-end gap-3 mt-3 mt-md-0">
+        <?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
+            <a href="admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
+                <i class="bi bi-pencil me-1"></i> Editar Permisos
+            </a>
+        <?php endif; ?>
+        <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> fs-5 py-2 px-3 shadow-sm"><?php echo htmlspecialchars($current_status); ?></span>
     </div>
 </div>
 
@@ -192,19 +210,40 @@ if ($user['role'] == 'admin') {
     </div>
 <?php endif; ?>
 
-<div class="row justify-content-center g-4 mb-5">
-    
-    <!-- COLUMNA CENTRALIZADA (1 sola columna para flujo vertical fluido) -->
+<div class="row justify-content-center mb-5">
     <div class="col-lg-10 col-xl-9">
         
-        <!-- Detalles Principales del Ticket -->
-        <div class="card glass-card border-0 mb-4 fade-in">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4 bg-light">
+                <div class="row">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.70rem;">Información del Creador</small>
+                        <div class="fw-medium text-dark"><?php echo htmlspecialchars($ticket['first_name'] . ' ' . $ticket['last_name']); ?></div>
+                        <div class="small text-muted"><i class="bi bi-person-vcard me-1"></i> DNI: <?php echo htmlspecialchars($ticket['dni']); ?></div>
+                        <?php if($ticket['office_name']): ?>
+                            <div class="small text-muted"><i class="bi bi-building me-1"></i> Oficina: <?php echo htmlspecialchars($ticket['office_name']); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.70rem;">Fecha de Creación</small>
+                        <div class="fw-medium text-dark"><i class="bi bi-calendar-check me-1"></i> <?php echo date('d M Y, h:i A', strtotime($ticket['created_at'])); ?></div>
+                        <div class="mt-2 text-dark"><span class="badge bg-secondary"><?php echo htmlspecialchars($ticket['category']); ?></span></div>
+                        
+                        <?php if($ticket['email'] || $ticket['phone']): ?>
+                            <div class="mt-2 small">
+                                <?php if($ticket['email']): ?><span class="text-muted d-block"><i class="bi bi-envelope me-1"></i> <?php echo htmlspecialchars($ticket['email']); ?></span><?php endif; ?>
+                                <?php if($ticket['phone']): ?><span class="text-muted d-block"><i class="bi bi-telephone me-1"></i> <?php echo htmlspecialchars($ticket['phone']); ?></span><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
             <div class="card-body p-4 p-md-5">
                 <div class="d-flex justify-content-between align-items-start mb-4">
                     <h4 class="fw-bold mb-0 text-primary"><?php echo htmlspecialchars($ticket['title']); ?></h4>
                 </div>
                 
-                <div class="bg-light p-3 rounded-3 mb-4 border" style="white-space: pre-wrap; font-size:1.05rem;"><?php echo htmlspecialchars($ticket['description']); ?></div>
+                <p class="text-dark bg-light p-3 rounded-3 mb-4 border" style="white-space: pre-wrap; font-size:1.05rem;"><?php echo htmlspecialchars($ticket['description']); ?></p>
                 <?php if (count($files) > 0): 
                     $images = [];
                     $other_files = [];
@@ -250,34 +289,11 @@ if ($user['role'] == 'admin') {
                 <div class="mb-4"></div>
                 <?php endif; ?>
                 <?php endif; ?>
-
-                <hr class="text-muted opacity-25">
-
-                <!-- Detalles del Solicitante -->
-                <h6 class="fw-bold mb-3 mt-4 text-muted"><i class="bi bi-person-badge"></i> Datos del Solicitante</h6>
-                <div class="row gx-4 gy-2 small">
-                    <div class="col-sm-6">
-                        <span class="text-secondary d-block">Nombre:</span>
-                        <span class="fw-medium text-dark"><?php echo htmlspecialchars($ticket['first_name'] . ' ' . $ticket['last_name']); ?></span>
-                    </div>
-                    <div class="col-sm-6">
-                        <span class="text-secondary d-block">Oficina:</span>
-                        <span class="fw-medium text-dark"><?php echo htmlspecialchars($ticket['office_name'] ?: 'No asignada'); ?></span>
-                    </div>
-                    <div class="col-sm-6">
-                        <span class="text-secondary d-block">Correo:</span>
-                        <span class="fw-medium text-dark"><?php echo htmlspecialchars($ticket['email'] ?: 'N/A'); ?></span>
-                    </div>
-                    <div class="col-sm-6">
-                        <span class="text-secondary d-block">Teléfono:</span>
-                        <span class="fw-medium text-dark"><?php echo htmlspecialchars($ticket['phone'] ?: 'N/A'); ?></span>
-                    </div>
-                </div>
             </div>
         </div>
 
         <!-- ACCIONES (Admin o Técnico) -->
-        <?php if ($user['role'] == 'admin'): ?>
+        <?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
             <div class="card glass-card border-0 mb-4 fade-in" style="background-color: #f8f9fa;">
                 <div class="card-body p-4">
                     <?php if ($current_status == 'Pendiente' && !$ticket['technician_id']): ?>
@@ -391,31 +407,21 @@ if ($user['role'] == 'admin') {
             </div>
         <?php endif; ?>
 
-        <?php if ($user['role'] == 'tecnico' && $is_assigned && !in_array($tech_status, ['Atendido', 'Rechazado'])): ?>
+        <?php if (($user['role'] == 'tecnico' || $is_impersonating) && $is_assigned && !in_array($tech_status, ['Atendido', 'Rechazado'])): ?>
             <!-- Acciones Rápidas del Técnico -->
             <div class="card glass-card border-0 mb-4 border-top border-4 border-info fade-in">
                 <div class="card-body p-4 text-center">
+                    <?php if($is_impersonating): ?>
+                        <div class="alert alert-warning py-2 small mb-3">Estás emitiendo estas acciones en nombre de este técnico.</div>
+                    <?php endif; ?>
                     <h5 class="fw-bold text-info mb-4"><i class="bi bi-tools me-2"></i> Acciones del Ticket</h5>
                     
                     <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
                         <?php if ($tech_status == 'En camino'): ?>
                             <button type="button" class="btn btn-primary px-4 py-2 fw-bold" onclick="openTechStatusModal('En proceso')">
-                                <i class="bi bi-play-circle me-1"></i> Iniciar Proceso
-                            </button>
-                            <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="openTechStatusModal('Rechazado')">
-                                <i class="bi bi-x-circle me-1"></i> Rechazar
+                                <i class="bi bi-play-circle me-2"></i> Iniciar Proceso (Diagnóstico)
                             </button>
                         <?php elseif ($tech_status == 'En proceso'): ?>
-                            <button type="button" class="btn btn-success px-4 py-2 fw-bold" onclick="openTechStatusModal('Atendido')">
-                                <i class="bi bi-check-circle me-1"></i> Marcar como Atendido
-                            </button>
-                            <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="openTechStatusModal('Rechazado')">
-                                <i class="bi bi-x-circle me-1"></i> Rechazar
-                            </button>
-                        <?php else: ?>
-                            <button type="button" class="btn btn-primary px-4 py-2 fw-bold" onclick="openTechStatusModal('En proceso')">
-                                <i class="bi bi-play-circle me-1"></i> Iniciar Proceso
-                            </button>
                             <button type="button" class="btn btn-success px-4 py-2 fw-bold" onclick="openTechStatusModal('Atendido')">
                                 <i class="bi bi-check-circle me-1"></i> Marcar como Atendido
                             </button>
@@ -440,6 +446,9 @@ if ($user['role'] == 'admin') {
                             <form method="POST" id="form-tech-manage">
                                 <input type="hidden" name="action" value="reaccionar">
                                 <input type="hidden" name="status" id="tech-modal-status">
+                                <?php if($is_impersonating): ?>
+                                    <input type="hidden" name="impersonate_tech" value="<?php echo $impersonated_tech_id; ?>">
+                                <?php endif; ?>
                                 <div class="mb-3">
                                     <label class="form-label fw-medium text-dark">Reporte del Técnico: <span id="tech-modal-comment-optional" class="text-muted fw-normal small">(Opcional)</span></label>
                                     <textarea class="form-control" name="tech_comment" id="tech-modal-comment-input" rows="4" placeholder="Escriba aquí el proceso, observaciones o la solución final que será visible para el solicitante..."><?php echo htmlspecialchars($ticket['tech_comment'] ?? ''); ?></textarea>
@@ -765,6 +774,30 @@ if ($user['role'] == 'admin') {
     function updateTransform() {
         imgElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
     }
+
+    // AJAX Polling para el historial
+    const ticketId = <?php echo $ticket_id; ?>;
+    
+    function pollTicketData() {
+        fetch(`ajax_get_ticket.php?id=${ticketId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return;
+                
+                // Actualizar Timeline
+                document.getElementById('history-container').innerHTML = data.html;
+                
+                // Actualizar Badge flotante arriba
+                const badge = document.getElementById('ticket-status-badge');
+                if (badge) {
+                    badge.className = `badge status-badge ${data.badge_class} ms-2 mt-n2 align-middle`;
+                    badge.innerText = data.status;
+                }
+            })
+            .catch(err => console.error("Polling error:", err));
+    }
+
+    setInterval(pollTicketData, 10000);
 </script>
 
 <?php 
