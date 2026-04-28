@@ -134,6 +134,7 @@ function getQueryStringParams($newPage) {
             <div class="col-md-2">
                 <label class="form-label fw-bold text-muted small text-uppercase">Mostrar</label>
                 <select name="limit" class="form-select">
+                    <option value="5" <?php echo $limit == 5 ? 'selected' : ''; ?>>5</option>
                     <option value="10" <?php echo $limit == 10 ? 'selected' : ''; ?>>10</option>
                     <option value="20" <?php echo $limit == 20 ? 'selected' : ''; ?>>20</option>
                     <option value="50" <?php echo $limit == 50 ? 'selected' : ''; ?>>50</option>
