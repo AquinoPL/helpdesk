@@ -190,7 +190,7 @@ if ($user['role'] == 'admin') {
     <div class="text-md-end d-flex align-items-center justify-content-md-end gap-3 mt-3 mt-md-0">
         <?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
             <a href="admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
-                <i class="bi bi-pencil me-1"></i> Editar Permisos
+                <i class="bi bi-pencil me-1"></i> Editar
             </a>
         <?php endif; ?>
         <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> fs-5 py-2 px-3 shadow-sm"><?php echo htmlspecialchars($current_status); ?></span>

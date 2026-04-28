@@ -44,6 +44,11 @@
                                 <a class="nav-link" href="<?php echo BASE_URL; ?>/ticket.php"><i class="bi bi-plus-circle"></i> Nuevo Ticket</a>
                             </li>
                         <?php endif; ?>
+                        <?php if($_SESSION["user"]["role"] != 'admin'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?php echo BASE_URL; ?>/historial.php"><i class="bi bi-clock-history"></i> Historial</a>
+                            </li>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </ul>
                 
@@ -58,8 +63,8 @@
                             <!-- Dropdown Menu -->
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                                 <li>
-                                    <a class="dropdown-item py-2 fw-medium" href="<?php echo BASE_URL; ?>/perfil.php">
-                                        <i class="bi bi-person-gear me-2"></i> Mi Perfil
+                                    <a class="dropdown-item py-2 fw-medium" href="<?php echo BASE_URL; ?><?php echo $_SESSION["user"]["role"] == 'admin' ? '/admin/configuracion.php' : '/configuracion.php'; ?>">
+                                        <i class="bi bi-gear-fill me-2"></i> Configuración
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>

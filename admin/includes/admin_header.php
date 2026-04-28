@@ -5,7 +5,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
     header("Location: ../login.php");
     exit();
 }
-$user_session = $_SESSION['user'];
+$user_session = $user_session ?? $_SESSION['user'];
 
 // Identificar pagina activa para sidebar
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -76,6 +76,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .mobile-toggle { display: none; }
         @media (max-width: 991.98px) { .mobile-toggle { display: block; } }
     </style>
+    <!-- Theme Script -->
+    <script>
+        const storedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-bs-theme', storedTheme);
+    </script>
 </head>
 <body>
 
@@ -84,6 +89,21 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="sidebar-brand text-center d-flex align-items-center justify-content-center">
         <i class="bi bi-shield-check text-primary me-2"></i>
         <span>Admin Panel</span>
+    </div>
+    
+    <!-- Perfil del Usuario Actual -->
+    <div class="px-4 py-3 text-center border-bottom" style="border-color: rgba(255,255,255,0.05) !important;">
+        <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-25 text-primary rounded-circle mb-2" style="width: 50px; height: 50px; font-size: 1.5rem; border: 2px solid var(--bs-primary);">
+            <?php 
+                $initials = strtoupper(substr($user_session['first_name'] ?? 'A', 0, 1) . substr($user_session['last_name'] ?? 'U', 0, 1));
+                echo htmlspecialchars($initials); 
+            ?>
+        </div>
+        <div class="fw-bold text-white lh-sm"><?php echo htmlspecialchars($user_session['first_name'] . ' ' . $user_session['last_name']); ?></div>
+        <div class="small text-muted mt-1" style="font-size: 0.8rem;"><i class="bi bi-person-vcard me-1"></i> <?php echo isset($user_session['dni']) ? htmlspecialchars($user_session['dni']) : 'ID: ' . htmlspecialchars($user_session['id']); ?></div>
+        <div class="badge bg-primary bg-opacity-25 text-primary border border-primary mt-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
+            <i class="bi bi-shield-lock-fill me-1"></i> <?php echo htmlspecialchars($user_session['role']); ?>
+        </div>
     </div>
     
     <div class="sidebar-menu">
@@ -131,8 +151,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="sidebar-footer">
         <!-- Usuario Perfil Shortcut -->
         <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/perfil.php" class="nav-link-sidebar bg-dark border border-secondary border-opacity-25 mb-2">
-                <i class="bi bi-person-circle"></i> Mi Perfil
+            <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="nav-link-sidebar <?php echo $currentPage == 'configuracion.php' ? 'active' : 'bg-dark border border-secondary border-opacity-25'; ?> mb-2">
+                <i class="bi bi-gear-fill"></i> Configuración
             </a>
         </div>
         <div class="nav-item-sidebar">

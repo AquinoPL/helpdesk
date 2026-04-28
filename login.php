@@ -23,6 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && isset($user['id']) && !empty($user['id'])) {
+            $user['dni'] = $dni; // Store DNI explicitly
             $_SESSION["user"] = $user;
 
             if ($user["role"] == "admin") {

@@ -25,21 +25,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         $stC->execute([$ticket_id]);
         $current_status = $stC->fetchColumn() ?: 'Pendiente';
 
-        // Evaluar permisos de claves foráneas
-        $full_edit = in_array($current_status, ['Pendiente', 'Atendido', 'Rechazado']);
+        // Ahora el administrador siempre puede hacer una edición completa (foráneas incluidas) sin importar el estado
+        $full_edit = true;
 
-        if ($full_edit) {
-            $user_id = !empty($_POST['user_id']) ? $_POST['user_id'] : null;
-            $technician_id = !empty($_POST['technician_id']) ? $_POST['technician_id'] : null;
-            $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
+        $user_id = !empty($_POST['user_id']) ? $_POST['user_id'] : null;
+        $technician_id = !empty($_POST['technician_id']) ? $_POST['technician_id'] : null;
+        $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
 
-            $stmt = $conn->prepare("UPDATE tickets SET title=?, category=?::ticket_category, description=?, tech_comment=?, user_id=?, technician_id=?, office_id=? WHERE id=?");
-            $stmt->execute([$title, $category, $description, $tech_comment, $user_id, $technician_id, $office_id, $ticket_id]);
-        } else {
-            // Edición parcial (solo variables no foráneas)
-            $stmt = $conn->prepare("UPDATE tickets SET title=?, category=?::ticket_category, description=?, tech_comment=? WHERE id=?");
-            $stmt->execute([$title, $category, $description, $tech_comment, $ticket_id]);
-        }
+        $stmt = $conn->prepare("UPDATE tickets SET title=?, category=?::ticket_category, description=?, tech_comment=?, user_id=?, technician_id=?, office_id=? WHERE id=?");
+        $stmt->execute([$title, $category, $description, $tech_comment, $user_id, $technician_id, $office_id, $ticket_id]);
 
         $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, 'El administrador modificó los atributos y contexto del ticket desde el panel.')");
         $stmtHist->execute([$ticket_id, $current_status, $_SESSION['user']['id']]);
@@ -61,7 +55,7 @@ if (!$ticket) {
 }
 
 $c_status = $ticket['status'] ?: 'Pendiente';
-$is_full_edit = in_array($c_status, ['Pendiente', 'Atendido', 'Rechazado']);
+$is_full_edit = true; // Habilitado para editar atributos en todo momento
 
 // Listas para los combo-box
 $usuarios = $conn->query("SELECT id, dni, first_name, last_name, email FROM usuarios WHERE is_active = TRUE ORDER BY first_name")->fetchAll(PDO::FETCH_ASSOC);
@@ -98,17 +92,7 @@ require 'includes/admin_header.php';
     </div>
 <?php endif; ?>
 
-<?php if(!$is_full_edit): ?>
-<div class="alert alert-warning py-3 mb-4 rounded-3 border-warning border-opacity-50">
-    <div class="d-flex align-items-center">
-        <div class="fs-1 text-warning me-3 opacity-75"><i class="bi bi-lock-fill"></i></div>
-        <div>
-            <h5 class="fw-bold mb-1 text-dark">Modo Restringido</h5>
-            <p class="mb-0 text-dark opacity-75">Visualizarás componentes bloqueados. Puesto que el ticket actual figura en <strong><?php echo $c_status; ?></strong>, significa que el equipo está interactuando operativamente o en ruta hacia él ahora mismo. Se ha cancelado la manipulación de credenciales foráneas (Usuario, Técnico y Oficina involucrada) previniendo fracturas en los hilos operacionales intermedios.</p>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
+
 
 <div class="card glass-card border-0 mb-5 fade-in">
     <div class="card-body p-4 p-lg-5">
@@ -152,7 +136,7 @@ require 'includes/admin_header.php';
 
                 <div class="col-md-4">
                     <label class="form-label fw-bold text-dark">Usuario Creador/Solicitante</label>
-                    <select name="user_id" class="form-select" <?php echo !$is_full_edit ? 'disabled' : 'required'; ?>>
+                    <select name="user_id" class="form-select" required>
                         <option value="">Seleccione o traspase titular...</option>
                         <?php foreach($usuarios as $u): ?>
                             <option value="<?php echo $u['id']; ?>" <?php echo $ticket['user_id'] == $u['id'] ? 'selected' : ''; ?>>
@@ -164,7 +148,7 @@ require 'includes/admin_header.php';
 
                 <div class="col-md-4">
                     <label class="form-label fw-bold text-dark">Técnico Aprobado</label>
-                    <select name="technician_id" class="form-select" <?php echo !$is_full_edit ? 'disabled' : ''; ?>>
+                    <select name="technician_id" class="form-select">
                         <option value="">Ninguno / Sin asignar</option>
                         <?php foreach($tecnicos as $t): ?>
                             <option value="<?php echo $t['id']; ?>" <?php echo ($ticket['technician_id'] ?? '') == $t['id'] ? 'selected' : ''; ?>>
@@ -176,7 +160,7 @@ require 'includes/admin_header.php';
 
                 <div class="col-md-4">
                     <label class="form-label fw-bold text-dark">Oficina Derivada / Afectada</label>
-                    <select name="office_id" class="form-select" <?php echo !$is_full_edit ? 'disabled' : ''; ?>>
+                    <select name="office_id" class="form-select">
                         <option value="">Ninguna Registrada</option>
                         <?php foreach($oficinas as $of): ?>
                             <option value="<?php echo $of['id']; ?>" <?php echo ($ticket['office_id'] ?? '') == $of['id'] ? 'selected' : ''; ?>>

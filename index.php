@@ -124,16 +124,6 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     $stmt = $conn->prepare("SELECT t.*, COALESCE(t.status, 'Pendiente') as current_status FROM tickets t WHERE t.user_id = :id AND (t.status NOT IN ('Atendido', 'Rechazado') OR t.status IS NULL) ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_ac");
     $stmt->execute(['id' => $user['id']]);
     $tickets_ac = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // TCKTS FINALIZADOS
-    $stmtF = $conn->prepare("SELECT COUNT(*) FROM tickets WHERE user_id = :id AND status IN ('Atendido', 'Rechazado')");
-    $stmtF->execute(['id' => $user['id']]);
-    $total_fi = $stmtF->fetchColumn();
-    $pages_fi = ceil($total_fi / $limit);
-
-    $stmt = $conn->prepare("SELECT t.*, t.status as current_status FROM tickets t WHERE t.user_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_fi");
-    $stmt->execute(['id' => $user['id']]);
-    $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
     <!-- TABLA ACTIVOS: USUARIO -->
@@ -178,47 +168,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
         </div>
     </div>
 
-    <!-- TABLA FINALIZADOS: USUARIO -->
-    <div class="card glass-card border-0 mb-4 opacity-75">
-        <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
-            <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-2"></i> Historial de Tickets Finalizados</h5>
-        </div>
-        <div class="card-body p-0 pb-3">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
-                        <tr>
-                            <th class="ps-4">Ticket</th>
-                            <th>Título</th>
-                            <th>Categoría</th>
-                            <th>Estado</th>
-                            <th>Fecha Creación</th>
-                            <th class="text-end pe-4">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($tickets_fi) > 0): ?>
-                            <?php foreach ($tickets_fi as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                            ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
-                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="6" class="text-center py-4 text-muted">No hay tickets finalizados aún.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php echo renderPagination($page_finished, $pages_fi, 'pf', 'pa', $page_active); ?>
-        </div>
-    </div>
+
 
 <?php elseif ($is_logged_in && $user["role"] == "tecnico"): ?>
     <?php
@@ -231,16 +181,6 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     $stmt = $conn->prepare("SELECT t.*, COALESCE(t.status, 'Pendiente') as current_status, u.first_name, u.last_name FROM tickets t JOIN usuarios u ON t.user_id = u.id WHERE t.technician_id = :id AND (t.status NOT IN ('Atendido', 'Rechazado') OR t.status IS NULL) ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_ac");
     $stmt->execute(['id' => $user['id']]);
     $tickets_ac = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // TCKTS FINALIZADOS TECNICO
-    $stmtF = $conn->prepare("SELECT COUNT(*) FROM tickets WHERE technician_id = :id AND status IN ('Atendido', 'Rechazado')");
-    $stmtF->execute(['id' => $user['id']]);
-    $total_fi = $stmtF->fetchColumn();
-    $pages_fi = ceil($total_fi / $limit);
-
-    $stmt = $conn->prepare("SELECT t.*, t.status as current_status, u.first_name, u.last_name FROM tickets t JOIN usuarios u ON t.user_id = u.id WHERE t.technician_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_fi");
-    $stmt->execute(['id' => $user['id']]);
-    $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
     <!-- TABLA ACTIVOS: TECNICO -->
@@ -285,47 +225,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
         </div>
     </div>
 
-    <!-- TABLA FINALIZADOS: TECNICO -->
-    <div class="card glass-card border-0 mb-4 opacity-75">
-        <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
-            <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-2"></i> Historial de Tickets Atendidos</h5>
-        </div>
-        <div class="card-body p-0 pb-3">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
-                        <tr>
-                            <th class="ps-4">Ticket</th>
-                            <th>Usuario</th>
-                            <th>Título</th>
-                            <th>Categoría</th>
-                            <th>Estado</th>
-                            <th class="text-end pe-4">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($tickets_fi) > 0): ?>
-                            <?php foreach ($tickets_fi as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                            ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
-                                <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
-                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="6" class="text-center py-4 text-muted">No tienes tickets finalizados.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php echo renderPagination($page_finished, $pages_fi, 'pf', 'pa', $page_active); ?>
-        </div>
-    </div>
+
 
 <?php elseif (!$is_logged_in): ?>
     <div class="row justify-content-center">

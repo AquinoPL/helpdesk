@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 $search = trim($_GET['q'] ?? '');
 $status_filter = $_GET['status'] ?? '';
 $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
-$limit = 20; // Tickets por página
+$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10; // Tickets por página
 $offset = ($page - 1) * $limit;
 
 // Construir la consulta dinámicamente según filtros
@@ -120,7 +120,7 @@ function getQueryStringParams($newPage) {
                     <input type="text" name="q" class="form-control" placeholder="ID de ticket, asunto o nombre de usuario..." value="<?php echo htmlspecialchars($search); ?>">
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label fw-bold text-muted small text-uppercase">Filtrar por Estado</label>
                 <select name="status" class="form-select">
                     <option value="">Todos los Estados</option>
@@ -131,7 +131,16 @@ function getQueryStringParams($newPage) {
                     <option value="Rechazado" <?php echo $status_filter == 'Rechazado' ? 'selected' : ''; ?>>Rechazado</option>
                 </select>
             </div>
-            <div class="col-md-3 d-flex align-items-end">
+            <div class="col-md-2">
+                <label class="form-label fw-bold text-muted small text-uppercase">Mostrar</label>
+                <select name="limit" class="form-select">
+                    <option value="10" <?php echo $limit == 10 ? 'selected' : ''; ?>>10</option>
+                    <option value="20" <?php echo $limit == 20 ? 'selected' : ''; ?>>20</option>
+                    <option value="50" <?php echo $limit == 50 ? 'selected' : ''; ?>>50</option>
+                    <option value="100" <?php echo $limit == 100 ? 'selected' : ''; ?>>100</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="bi bi-funnel me-1"></i> Filtrar</button>
             </div>
         </form>

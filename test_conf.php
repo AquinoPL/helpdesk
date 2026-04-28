@@ -1,0 +1,1 @@
+<?php require "config/database.php"; $user_session = ["id" => 1]; $table = "trabajadores"; $stmtFullData = $conn->prepare("SELECT * FROM $table WHERE id = ?"); $stmtFullData->execute([$user_session["id"]]); $fullData = $stmtFullData->fetch(PDO::FETCH_ASSOC); print_r($fullData); ?>
