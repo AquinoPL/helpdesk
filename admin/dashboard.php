@@ -129,9 +129,9 @@ $atendidos  = $stats['Atendido'] ?? 0;
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0"><i class="bi bi-funnel text-primary me-2"></i> Tickets Filtrados: <?php echo htmlspecialchars($filter); ?></h5>
         </div>
-        <div class="card-body p-0 pb-3">
+        <div class="card-body p-2 pb-3">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 table-borderless" style="border-spacing: 0 8px; border-collapse: separate;">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">Ticket</th>
@@ -148,14 +148,14 @@ $atendidos  = $stats['Atendido'] ?? 0;
                             <?php foreach ($tickets_fl as $t): 
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                            <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                <td class="ps-4 py-3"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                 <td><?php echo htmlspecialchars($t['category']); ?></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                                 <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Revisar</a></td>
+                                <td class="pe-4 py-3 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Revisar</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -204,9 +204,9 @@ $atendidos  = $stats['Atendido'] ?? 0;
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0"><i class="bi bi-exclamation-circle text-warning me-2"></i> Tickets Activos (En Progreso)</h5>
         </div>
-        <div class="card-body p-0 pb-3">
+        <div class="card-body p-2 pb-3">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 table-borderless" style="border-spacing: 0 8px; border-collapse: separate;">
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">Ticket</th>
@@ -223,14 +223,14 @@ $atendidos  = $stats['Atendido'] ?? 0;
                             <?php foreach ($tickets_ac as $t): 
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                            <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                <td class="ps-4 py-3"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                 <td><?php echo htmlspecialchars($t['category']); ?></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                                 <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Gestionar</a></td>
+                                <td class="pe-4 py-3 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Gestionar</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -248,9 +248,9 @@ $atendidos  = $stats['Atendido'] ?? 0;
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-journal-check me-2"></i> Historial de Tickets Finalizados</h5>
         </div>
-        <div class="card-body p-0 pb-3">
+        <div class="card-body p-2 pb-3">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 table-borderless" style="border-spacing: 0 8px; border-collapse: separate;">
                     <thead class="table-light text-muted">
                         <tr>
                             <th class="ps-4">Ticket</th>
@@ -267,14 +267,14 @@ $atendidos  = $stats['Atendido'] ?? 0;
                             <?php foreach ($tickets_fi as $t): 
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                            <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                                <td class="ps-4 py-3"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                 <td><?php echo htmlspecialchars($t['category']); ?></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                                 <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
+                                <td class="pe-4 py-3 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>

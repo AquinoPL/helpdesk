@@ -66,7 +66,7 @@ if (count($tickets) > 0) {
         $st = $t['status'] ?: 'Pendiente';
         echo '<a href="'.BASE_URL.'/ticket_detalle.php?id='.$t['id'].'" class="list-group-item list-group-item-action border-0 px-3 py-2 d-flex justify-content-between align-items-center">';
         echo '<div class="text-truncate flex-grow-1"><i class="bi bi-ticket-perforated text-primary me-2"></i>';
-        echo '<span class="fw-bold me-2">#'.str_pad($t['id'], 4, '0', STR_PAD_LEFT).'</span>';
+        echo '<span class="fw-bold me-2">#'.htmlspecialchars($t['id']).'</span>';
         echo '<span class="text-dark small">'.htmlspecialchars($t['title']).'</span></div>';
         echo '<span class="badge bg-secondary bg-opacity-25 text-dark ms-2" style="font-size:0.7em;">'.$st.'</span>';
         echo '</a>';

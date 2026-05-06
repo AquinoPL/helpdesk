@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 $search = trim($_GET['q'] ?? '');
 $status_filter = $_GET['status'] ?? '';
 $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10; // Tickets por página
+$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 5; // Tickets por página
 $offset = ($page - 1) * $limit;
 
 // Construir la consulta dinámicamente según filtros
@@ -41,16 +41,12 @@ $where = "1=1";
 $params = [];
 
 if ($search !== '') {
-    if (is_numeric($search)) {
-        $where .= " AND t.id = ?";
-        $params[] = $search;
-    } else {
-        $where .= " AND (t.title ILIKE ? OR u.first_name ILIKE ? OR u.last_name ILIKE ?)";
-        $wildcard = "%$search%";
-        $params[] = $wildcard;
-        $params[] = $wildcard;
-        $params[] = $wildcard;
-    }
+    $where .= " AND (t.id::TEXT ILIKE ? OR t.title ILIKE ? OR u.first_name ILIKE ? OR u.last_name ILIKE ?)";
+    $wildcard = "%$search%";
+    $params[] = $wildcard;
+    $params[] = $wildcard;
+    $params[] = $wildcard;
+    $params[] = $wildcard;
 }
 
 if ($status_filter !== '') {
@@ -150,9 +146,9 @@ function getQueryStringParams($newPage) {
 
 <!-- Tabla Exhaustiva -->
 <div class="card glass-card border-0 fade-in">
-    <div class="card-body p-0">
+    <div class="card-body p-2">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 table-borderless" style="border-spacing: 0 8px; border-collapse: separate;">
                 <thead class="table-light text-muted">
                     <tr>
                         <th class="ps-4">Ticket ID</th>
@@ -169,8 +165,8 @@ function getQueryStringParams($newPage) {
                         <?php foreach ($tickets as $t): 
                             $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                         ?>
-                        <tr class="ticket-row" style="cursor: pointer;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                            <td class="ps-4"><span class="fw-bold fs-6 text-muted"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                        <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <td class="ps-4 py-3"><span class="fw-bold fs-6 text-muted"><?php echo htmlspecialchars($t['id']); ?></span></td>
                             <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['user_fname'] . ' ' . $t['user_lname']); ?></td>
                             <td class="<?php echo $t['technician_id'] ? 'text-primary fw-medium' : 'text-muted fst-italic'; ?>">
                                 <?php echo $t['technician_id'] ? htmlspecialchars($t['tech_fname'] . ' ' . $t['tech_lname']) : 'No asignado'; ?>
@@ -181,7 +177,7 @@ function getQueryStringParams($newPage) {
                             </td>
                             <td><span class="badge status-badge <?php echo $badgeClass; ?> shadow-sm"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                             <td class="small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
-                            <td class="text-end pe-4 position-relative" style="z-index: 2;">
+                            <td class="text-end pe-4 py-3 position-relative" style="z-index: 2;">
                                 <a href="editar_ticket.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1" title="Editar detalles">
                                     <i class="bi bi-pencil"></i>
                                 </a>

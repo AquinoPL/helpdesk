@@ -84,7 +84,7 @@ endif;
                 </button>
                 <div>
                     <h2 class="fw-bold mb-0 text-dark">
-                        Ticket <?php echo date('Y', strtotime($ticket['created_at'])) . str_pad($ticket['id'], 3, '0', STR_PAD_LEFT); ?>
+                        Ticket <?php echo htmlspecialchars($ticket['id']); ?>
                         <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> ms-2 mt-n2 align-middle" style="font-size: 0.5em;"><?php echo htmlspecialchars($current_status); ?></span>
                     </h2>
                     <p class="text-muted mb-0"><i class="spinner-grow spinner-grow-sm text-success me-1" style="width: 0.8rem; height: 0.8rem;"></i> Actualizado en tiempo real</p>

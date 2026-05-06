@@ -149,7 +149,7 @@ if ($tech_id) {
                             ?>
                                 <tr class="ticket-row"
                                     onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
-                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><?php echo htmlspecialchars($t['category']); ?></td>
@@ -194,7 +194,7 @@ if ($tech_id) {
                                 ?>
                                 <tr class="ticket-row"
                                     onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
-                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo date('Y', strtotime($t['created_at'])) . str_pad($t['id'], 3, '0', STR_PAD_LEFT); ?></span></td>
+                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><?php echo htmlspecialchars($t['category']); ?></td>

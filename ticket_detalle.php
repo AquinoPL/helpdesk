@@ -182,7 +182,7 @@ if ($user['role'] == 'admin') {
             <i class="bi bi-arrow-left"></i>
         </button>
         <div>
-            <h2 class="fw-bold mb-0">Seguimiento de Ticket <span class="text-primary"><?php echo date('Y', strtotime($ticket['created_at'])) . str_pad($ticket['id'], 3, '0', STR_PAD_LEFT); ?></span></h2>
+            <h2 class="fw-bold mb-0">Seguimiento de Ticket <span class="text-primary"><?php echo htmlspecialchars($ticket['id']); ?></span></h2>
             <p class="text-muted mb-0"><i class="spinner-grow spinner-grow-sm text-success me-1" style="width: 0.8rem; height: 0.8rem;"></i> Actualizado en tiempo real</p>
         </div>
     </div>

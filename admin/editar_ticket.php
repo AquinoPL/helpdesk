@@ -72,7 +72,7 @@ require 'includes/admin_header.php';
             <i class="bi bi-arrow-left"></i>
         </button>
         <div>
-            <h2 class="fw-bold mb-0">Edición de Ticket <span class="text-primary"><?php echo date('Y', strtotime($ticket['created_at'])) . str_pad($ticket['id'], 3, '0', STR_PAD_LEFT); ?></span></h2>
+            <h2 class="fw-bold mb-0">Edición de Ticket <span class="text-primary"><?php echo htmlspecialchars($ticket['id']); ?></span></h2>
             <p class="text-muted mb-0"><i class="bi bi-tools me-1"></i> Panel de sobreescritura administrativa</p>
         </div>
     </div>

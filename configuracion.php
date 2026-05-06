@@ -128,9 +128,6 @@ require 'includes/header.php';
                 <button class="nav-link text-start py-3 mb-1 rounded-3 fw-medium d-flex align-items-center" id="tab-seguridad-btn" data-bs-toggle="pill" data-bs-target="#panel-seguridad" type="button" role="tab" aria-selected="false">
                     <i class="bi bi-shield-lock fs-5 me-3"></i> Seguridad
                 </button>
-                <button class="nav-link text-start py-3 mb-1 rounded-3 fw-medium d-flex align-items-center" id="tab-tema-btn" data-bs-toggle="pill" data-bs-target="#panel-tema" type="button" role="tab" aria-selected="false">
-                    <i class="bi bi-palette fs-5 me-3"></i> Apariencia Visual
-                </button>
             </div>
         </div>
     </div>
@@ -245,31 +242,6 @@ require 'includes/header.php';
                 </div>
             </div>
 
-            <!-- PANEL: TEMA -->
-            <div class="tab-pane fade" id="panel-tema" role="tabpanel" aria-labelledby="tab-tema-btn">
-                <div class="card glass-card border-0 p-4 p-md-5">
-                    <h4 class="fw-bold text-dark mb-4 border-bottom pb-2">Apariencia Visual</h4>
-                    <form method="POST">
-                        <input type="hidden" name="section" value="tema">
-                        <div class="row g-3">
-                            <div class="col-12 col-md-6 mb-2">
-                                <label class="form-label fw-medium text-dark">Esquema de Colores</label>
-                                <select class="form-select form-select-lg" id="themeSelector">
-                                    <option value="light">☀️ Interfaz Clara</option>
-                                    <option value="dark">🌙 Interfaz Oscura</option>
-                                </select>
-                                <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Esta preferencia se guarda localmente en su dispositivo no altera la base de datos ni es global para otros de sus ordenadores.</div>
-                            </div>
-                        </div>
-                        <div class="text-end mt-4 pt-4 border-top">
-                            <button type="submit" class="btn btn-primary px-4 py-2 fw-bold shadow-sm">
-                                <i class="bi bi-save me-1"></i> Guardar Cambios
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
         </div>
     </div>
 </div>
@@ -284,17 +256,6 @@ require 'includes/header.php';
                 bsAlert.close();
             });
         }, 5000);
-
-        // Theme Switcher Logic
-        const themeSelector = document.getElementById('themeSelector');
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        themeSelector.value = currentTheme;
-
-        themeSelector.addEventListener('change', function() {
-            const selectedTheme = this.value;
-            localStorage.setItem('theme', selectedTheme);
-            document.documentElement.setAttribute('data-bs-theme', selectedTheme);
-        });
 
         // Sticky Tabs: Remember the last opened tab
         const tabKey = 'activeConfigTab';

@@ -53,12 +53,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .nav-link-sidebar {
             display: flex;
             align-items: center;
-            color: rgba(255,255,255,0.7) !important;
-            padding: 0.75rem 1rem;
+            color: rgba(255,255,255,0.85) !important;
+            padding: 0.5rem 1rem;
             border-radius: 0.5rem;
             text-decoration: none;
             transition: all 0.2s ease;
             font-weight: 500;
+            font-size: 0.9rem;
         }
         .nav-link-sidebar i { margin-right: 0.75rem; font-size: 1.2rem; }
         .nav-link-sidebar:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
@@ -100,14 +101,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             ?>
         </div>
         <div class="fw-bold text-white lh-sm"><?php echo htmlspecialchars($user_session['first_name'] . ' ' . $user_session['last_name']); ?></div>
-        <div class="small text-muted mt-1" style="font-size: 0.8rem;"><i class="bi bi-person-vcard me-1"></i> <?php echo isset($user_session['dni']) ? htmlspecialchars($user_session['dni']) : 'ID: ' . htmlspecialchars($user_session['id']); ?></div>
-        <div class="badge bg-primary bg-opacity-25 text-primary border border-primary mt-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
+        <div class="small text-light opacity-75 mt-1" style="font-size: 0.8rem;"><i class="bi bi-person-vcard me-1"></i> <?php echo isset($user_session['dni']) ? htmlspecialchars($user_session['dni']) : 'ID: ' . htmlspecialchars($user_session['id']); ?></div>
+        <div class="badge bg-primary bg-opacity-25 text-white border border-primary mt-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
             <i class="bi bi-shield-lock-fill me-1"></i> <?php echo htmlspecialchars($user_session['role']); ?>
         </div>
     </div>
     
     <div class="sidebar-menu">
-        <div class="px-4 py-2 text-uppercase small fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Gestión Principal</div>
+        <div class="px-4 py-2 text-uppercase small fw-bold text-light opacity-75" style="letter-spacing: 0.5px; font-size: 0.7rem;">Gestión Principal</div>
         
         <div class="nav-item-sidebar">
             <a href="<?php echo BASE_URL; ?>/admin/dashboard.php" class="nav-link-sidebar <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?>">
@@ -130,7 +131,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
 
-        <div class="px-4 py-2 mt-3 text-uppercase small fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 0.7rem;">Directorio</div>
+        <div class="px-4 py-2 mt-2 text-uppercase small fw-bold text-light opacity-75" style="letter-spacing: 0.5px; font-size: 0.7rem;">Directorio</div>
         <div class="nav-item-sidebar">
             <a href="<?php echo BASE_URL; ?>/admin/usuarios.php" class="nav-link-sidebar <?php echo $currentPage == 'usuarios.php' ? 'active' : ''; ?>">
                 <i class="bi bi-people"></i> Usuarios
@@ -151,7 +152,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="sidebar-footer">
         <!-- Usuario Perfil Shortcut -->
         <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="nav-link-sidebar <?php echo $currentPage == 'configuracion.php' ? 'active' : 'bg-dark border border-secondary border-opacity-25'; ?> mb-2">
+            <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="nav-link-sidebar <?php echo $currentPage == 'configuracion.php' ? 'active' : 'bg-dark border border-secondary border-opacity-25 text-white'; ?> mb-2">
                 <i class="bi bi-gear-fill"></i> Configuración
             </a>
         </div>
