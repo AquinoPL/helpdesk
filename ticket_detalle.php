@@ -22,28 +22,19 @@ if (isset($_GET['success'])) {
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     try {
         if ($_POST['action'] == 'asignar' && $user['role'] == 'admin') {
-            $tech_id = $_POST['technician_id'];
-            $stmt = $conn->prepare("UPDATE tickets SET technician_id = ?, status = 'En camino' WHERE id = ?");
-            $stmt->execute([$tech_id, $ticket_id]);
-            
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, 'En camino', ?, 'Técnico asignado')");
-            $stmtHist->execute([$ticket_id, $user['id']]);
+            $tech_id = (int)$_POST['technician_id'];
+            // CALL al procedure asignar_tecnico
+            $stmt = $conn->prepare("CALL asignar_tecnico(?, ?, ?)");
+            $stmt->execute([$ticket_id, $tech_id, $user['id']]);
             header("Location: ticket_detalle.php?id=$ticket_id&success=assigned");
             exit();
         }
 
         if ($_POST['action'] == 'reasignar' && $user['role'] == 'admin') {
-            $tech_id = $_POST['technician_id'];
-            // Borramos el historial del técnico anterior (todo salvo el estado inicial 'Pendiente')
-            $stmtDel = $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ? AND status != 'Pendiente'");
-            $stmtDel->execute([$ticket_id]);
-
-            // Asignamos el nuevo técnico
-            $stmt = $conn->prepare("UPDATE tickets SET technician_id = ?, status = 'En camino' WHERE id = ?");
-            $stmt->execute([$tech_id, $ticket_id]);
-            
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, 'En camino', ?, 'Ticket reasignado a nuevo técnico')");
-            $stmtHist->execute([$ticket_id, $user['id']]);
+            $tech_id = (int)$_POST['technician_id'];
+            // CALL al procedure reasignar_tecnico (borra historial anterior y reasigna)
+            $stmt = $conn->prepare("CALL reasignar_tecnico(?, ?, ?)");
+            $stmt->execute([$ticket_id, $tech_id, $user['id']]);
             header("Location: ticket_detalle.php?id=$ticket_id&success=assigned");
             exit();
         }
@@ -53,11 +44,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             if(empty($comment)) {
                 $error = "Debe proporcionar un motivo para rechazar el ticket.";
             } else {
-                $stmt = $conn->prepare("UPDATE tickets SET status = 'Rechazado' WHERE id = ?");
-                $stmt->execute([$ticket_id]);
-                
-                $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, 'Rechazado', ?, ?)");
-                $stmtHist->execute([$ticket_id, $user['id'], $comment]);
+                // CALL al procedure rechazar_ticket
+                $stmt = $conn->prepare("CALL rechazar_ticket(?, ?, ?)");
+                $stmt->execute([$ticket_id, $user['id'], $comment]);
                 header("Location: ticket_detalle.php?id=$ticket_id&success=updated");
                 exit();
             }
@@ -69,13 +58,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             $status = $_POST['status'];
             $tech_comment = trim($_POST['tech_comment'] ?? '');
             $operative_tech_id = isset($_POST['impersonate_tech']) ? (int)$_POST['impersonate_tech'] : $user['id'];
-            
-            $stmt = $conn->prepare("UPDATE tickets SET status = ?::ticket_status, tech_comment = ?, attended_at = CASE WHEN ? = 'Atendido' THEN NOW() ELSE attended_at END WHERE id = ? AND technician_id = ?");
-            $stmt->execute([$status, $tech_comment, $status, $ticket_id, $operative_tech_id]);
 
+            // Actualizar el comentario del técnico (tech_comment no está en update_ticket_status, se actualiza aparte)
+            if (!empty($tech_comment)) {
+                $stmtComment = $conn->prepare("UPDATE tickets SET tech_comment = ? WHERE id = ?");
+                $stmtComment->execute([$tech_comment, $ticket_id]);
+            }
+
+            // CALL al procedure update_ticket_status
             $comment = "El técnico actualizó el estado a " . $status;
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, ?)");
-            $stmtHist->execute([$ticket_id, $status, $operative_tech_id, $comment]);
+            $stmt = $conn->prepare("CALL update_ticket_status(?, ?, ?, ?)");
+            $stmt->execute([$ticket_id, $operative_tech_id, $status, $comment]);
 
             $redirect_url = "ticket_detalle.php?id=$ticket_id&success=updated" . (isset($_POST['impersonate_tech']) ? "&impersonate_tech=" . $operative_tech_id : "");
             header("Location: $redirect_url");

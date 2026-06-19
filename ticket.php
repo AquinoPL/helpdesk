@@ -10,25 +10,19 @@ $success = '';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $title = trim($_POST['title']);
     $category = $_POST['category'];
-    $description = trim($_POST['description']);
+    $description = isset($_POST['description']) ? trim($_POST['description']) : '';
     $user_id = $_SESSION['user']['id'];
     $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
 
-    if (empty($title) || empty($category) || empty($description)) {
+    if (empty($title) || empty($category)) {
         $error = "Todos los campos obligatorios deben ser completados.";
     } else {
         try {
-            // Insertar directamente con cast explícito para el ENUM
-            $stmt = $conn->prepare("
-                INSERT INTO tickets (user_id, category, title, description, office_id) 
-                VALUES (?, ?::ticket_category, ?, ?, ?) 
-                RETURNING id
-            ");
-            $stmt->execute([$user_id, $category, $title, $description, $office_id]);
-            $new_ticket_id = $stmt->fetchColumn();
+            // CALL al procedure create_ticket (crea el ticket y registra el historial inicial)
+            $conn->exec("CALL create_ticket($user_id, '$category', " . $conn->quote($title) . ", " . $conn->quote($description ?? '') . ", " . ($office_id ?? 'NULL') . ", @ticket_id)");
+            $row = $conn->query("SELECT @ticket_id AS ticket_id")->fetch(PDO::FETCH_ASSOC);
+            $new_ticket_id = $row['ticket_id'];
 
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado')");
-            $stmtHist->execute([$new_ticket_id]);
 
             // Guardar archivos si los hay
             if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
@@ -135,8 +129,8 @@ require 'includes/header.php';
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label fw-medium text-dark">Descripción <span class="text-danger">*</span></label>
-                    <textarea name="description" class="form-control" rows="5" placeholder="Detalla lo más posible el problema que presentas..." required></textarea>
+                    <label class="form-label fw-medium text-dark">Descripción <span class="text-muted fw-normal">(Opcional)</span></label>
+                    <textarea name="description" class="form-control" rows="5" placeholder="Detalla lo más posible el problema que presentas..."></textarea>
                 </div>
 
                 <div class="mb-5">

@@ -12,10 +12,11 @@ if (strlen($q) < 2) {
 }
 
 try {
-    $stmt = $conn->prepare("SELECT * FROM search_office(:name)");
-    $stmt->execute(['name' => $q]);
+    // CALL al procedure search_office (equivalente a SELECT * FROM search_office() en PostgreSQL)
+    $stmt = $conn->prepare("CALL search_office(?)");
+    $stmt->execute([$q]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     echo json_encode($results);
 } catch (PDOException $e) {
     echo json_encode([]);

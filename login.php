@@ -15,15 +15,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST["password"];
 
     try {
-        $stmt = $conn->prepare("SELECT * FROM login_user(:dni, :password)");
-        $stmt->bindParam(':dni', $dni);
-        $stmt->bindParam(':password', $password);
-        $stmt->execute();
-
+        // CALL al procedure login_user (equivalente a SELECT * FROM login_user() en PostgreSQL)
+        $stmt = $conn->prepare("CALL login_user(?, ?)");
+        $stmt->execute([$dni, $password]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && isset($user['id']) && !empty($user['id'])) {
-            $user['dni'] = $dni; // Store DNI explicitly
+            $user['dni'] = $dni;
             $_SESSION["user"] = $user;
 
             if ($user["role"] == "admin") {
@@ -36,7 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $error = "Credenciales incorrectas o usuario no encontrado.";
         }
     } catch(PDOException $e) {
-        $error = "Error al intentar iniciar sesión.";
+        $error = "Error al intentar iniciar sesión: " . $e->getMessage();
     }
 }
 ?>

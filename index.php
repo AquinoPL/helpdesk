@@ -25,11 +25,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
     $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
     $category = $_POST['category'];
     $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
+    $description = isset($_POST['description']) ? trim($_POST['description']) : '';
     $first_name = !empty($_POST['first_name']) ? trim($_POST['first_name']) : 'No Especificado';
     $last_name = !empty($_POST['last_name']) ? trim($_POST['last_name']) : 'No Especificado';
 
-    if (empty($dni) || empty($phone) || empty($office_id) || empty($category) || empty($title) || empty($description)) {
+    if (empty($dni) || empty($phone) || empty($office_id) || empty($category) || empty($title)) {
         $error = "Por favor, completa todos los campos obligatorios.";
     } else {
         try {
@@ -53,6 +53,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
 
             $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado desde el portal público')");
             $stmtHist->execute([$new_ticket_id]);
+
+            // Guardar archivos si los hay
+            if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
+                $upload_dir = 'uploads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0777, true);
+                }
+
+                $total = count($_FILES['archivos']['name']);
+                for ($i = 0; $i < $total; $i++) {
+                    $tmp_name = $_FILES['archivos']['tmp_name'][$i];
+                    if ($tmp_name != "") {
+                        $name = $_FILES['archivos']['name'][$i];
+                        $safe_name = preg_replace("/[^a-zA-Z0-9.]+/", "", basename($name));
+                        $file_path = $upload_dir . 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+
+                        if (move_uploaded_file($tmp_name, $file_path)) {
+                            $stmtFile = $conn->prepare("INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)");
+                            $stmtFile->execute([$new_ticket_id, $file_path]);
+                        }
+                    }
+                }
+            }
 
             $conn->commit();
             header("Location: ticket_status.php?id=" . $new_ticket_id . "&dni=" . urlencode($dni));
@@ -235,7 +258,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
             <?php endif; ?>
             
             <div class="card glass-card border-0 p-4 shadow-sm">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data" id="publicTicketForm">
                     
                     <div class="row mb-4">
                         <div class="col-md-6">
@@ -291,8 +314,39 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-medium text-dark">Descripción <span class="text-danger">*</span></label>
-                        <textarea name="description" class="form-control" rows="4" required placeholder="Detalle su solicitud"></textarea>
+                        <label class="form-label fw-medium text-dark">Descripción <span class="text-muted fw-normal">(Opcional)</span></label>
+                        <textarea name="description" class="form-control" rows="4" placeholder="Detalle su solicitud"></textarea>
+                    </div>
+
+                    <!-- Evidencias Adjuntas (Máximo 5 archivos) -->
+                    <div class="mb-4">
+                        <label class="form-label fw-medium text-dark mb-3">Evidencias Adjuntas (Máximo 5 archivos)</label>
+                        <div class="card bg-light border-0 mb-3" style="border: 2px dashed #c1c9d0 !important;">
+                            <div class="card-body text-center p-4">
+                                <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary mb-2 d-block opacity-75"></i>
+                                <h6 class="fw-bold text-dark">Añade fotos o documentos</h6>
+                                <p class="small text-muted mb-3">Sube imágenes, reportes o captura en vivo el problema (Máx 5).</p>
+                                
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('cameraInput').click()">
+                                        <i class="bi bi-camera-fill me-1"></i> Tomar foto
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                        <i class="bi bi-folder-plus me-1"></i> Explorar equipo
+                                    </button>
+                                </div>
+
+                                <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
+                                <input type="file" id="fileInput" class="d-none" multiple>
+                                <!-- Input real que se envía al servidor con las selecciones combinadas -->
+                                <input type="file" name="archivos[]" id="realInput" class="d-none" multiple>
+                            </div>
+                        </div>
+                        
+                        <!-- Lista visual de archivos -->
+                        <ul class="list-group list-group-flush border rounded-3 overflow-hidden" id="filePreviewList" style="display: none;">
+                            <!-- JS inyecta los items aquí -->
+                        </ul>
                     </div>
 
                     <div class="d-grid">
@@ -302,6 +356,84 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     </div>
 
                 </form>
+
+                <script>
+                    const cameraInput = document.getElementById('cameraInput');
+                    const fileInput = document.getElementById('fileInput');
+                    const realInput = document.getElementById('realInput');
+                    const filePreviewList = document.getElementById('filePreviewList');
+                    
+                    let selectedFiles = [];
+                    const MAX_FILES = 5;
+
+                    function handleFiles(files) {
+                        for (let i = 0; i < files.length; i++) {
+                            if (selectedFiles.length >= MAX_FILES) {
+                                alert('⚠️ Límite alcanzado: Solo puedes adjuntar un máximo de ' + MAX_FILES + ' evidencias.');
+                                break;
+                            }
+                            if(!selectedFiles.some(f => f.name === files[i].name && f.size === files[i].size)) {
+                                selectedFiles.push(files[i]);
+                            }
+                        }
+                        updateUI();
+                    }
+
+                    if (cameraInput) {
+                        cameraInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
+                    }
+                    if (fileInput) {
+                        fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
+                    }
+
+                    function updateUI() {
+                        filePreviewList.innerHTML = '';
+                        const dt = new DataTransfer();
+
+                        selectedFiles.forEach((file, index) => {
+                            dt.items.add(file);
+                            
+                            // Infer icon from file type
+                            let icon = 'bi-file-earmark';
+                            if (file.type.startsWith('image/')) icon = 'bi-image text-primary';
+                            else if (file.type === 'application/pdf') icon = 'bi-file-earmark-pdf text-danger';
+
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item d-flex justify-content-between align-items-center bg-white';
+                            li.innerHTML = `
+                                <div class="d-flex align-items-center text-truncate pe-3">
+                                    <i class="bi ${icon} fs-5 me-3 opacity-75"></i>
+                                    <div class="text-truncate">
+                                        <span class="d-block fw-medium text-dark text-truncate" style="font-size: 0.95rem;">${file.name}</span>
+                                        <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" style="width:32px; height:32px; padding:0;" onclick="removeFile(${index})" title="Quitar archivo">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            `;
+                            filePreviewList.appendChild(li);
+                        });
+
+                        realInput.files = dt.files;
+                        filePreviewList.style.display = selectedFiles.length > 0 ? 'block' : 'none';
+                    }
+
+                    function removeFile(index) {
+                        selectedFiles.splice(index, 1);
+                        updateUI();
+                    }
+
+                    const publicForm = document.getElementById('publicTicketForm');
+                    if (publicForm) {
+                        publicForm.addEventListener('submit', function(e) {
+                            if(selectedFiles.length > MAX_FILES) {
+                                e.preventDefault();
+                                alert('Por favor remueve archivos para cumplir el límite de ' + MAX_FILES + '.');
+                            }
+                        });
+                    }
+                </script>
             </div>
         </div>
     </div>

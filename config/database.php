@@ -1,21 +1,19 @@
 <?php
-
-$host = "localhost";
-$port = "5432";
-$dbname = "db_support";
-$user = "postgres";
-$password = "123456789";
-/*
-$host = "aws-1-us-east-1.pooler.supabase.com";
-$port = "6543";
-$dbname = "postgres";
-$user = "postgres.rzcemgsycamwlgjugngv";
-$password = "soporte*2026";
-*/
+// ── Conexión MySQL local ──────────────────────────────────────
+$host   = "localhost";
+$port   = "3306";       // Puerto por defecto de MySQL
+$dbname = "helpdesk";   // Nombre de la base de datos creada en MySQL
+$user   = "root";       // Usuario de MySQL (cámbialo si usas otro)
+$password = "";         // Contraseña de MySQL (cámbiala si tienes una)
 
 try {
-    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn = new PDO(
+        "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4",
+        $user,
+        $password
+    );
+    $conn->setAttribute(PDO::ATTR_ERRMODE,        PDO::ERRMODE_EXCEPTION);
+    $conn->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); // Usar prepared statements reales
 } catch (PDOException $e) {
     die("Error de conexión: " . $e->getMessage());
 }
