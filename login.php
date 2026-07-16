@@ -22,6 +22,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($user && isset($user['id']) && !empty($user['id'])) {
             $user['dni'] = $dni;
+
+            // Asegurar que office_id esté en sesión (lo retorna el procedure actualizado;
+            // si la BD es antigua y no lo trae, lo consultamos manualmente).
+            if (!isset($user['office_id'])) {
+                $table = ($user['role'] === 'usuario') ? 'usuarios' : 'trabajadores';
+                $stmtOfc = $conn->prepare("SELECT office_id FROM $table WHERE id = ?");
+                $stmtOfc->execute([$user['id']]);
+                $user['office_id'] = $stmtOfc->fetchColumn();
+            }
+
             $_SESSION["user"] = $user;
 
             if ($user["role"] == "admin") {
@@ -66,7 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
 <div class="login-container fade-in px-3">
-    <div class="card glass-card border-0 p-4 p-md-5">
+    <div class="card card-plain border-0 p-4 p-md-5">
         <div class="text-center mb-4">
             <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 70px; height: 70px;">
                 <i class="bi bi-headset fs-1"></i>

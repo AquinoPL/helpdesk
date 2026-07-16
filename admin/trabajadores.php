@@ -127,7 +127,7 @@ require 'includes/admin_header.php';
     </div>
 <?php endif; ?>
 
-<div class="card glass-card border-0">
+<div class="card card-plain border-0">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -199,7 +199,7 @@ require 'includes/admin_header.php';
     <hr class="flex-grow-1 ms-3">
 </div>
 
-<div class="card glass-card border-0 opacity-75">
+<div class="card card-plain border-0 opacity-75">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

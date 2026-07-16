@@ -18,6 +18,6 @@
         document.documentElement.setAttribute('data-bs-theme', storedTheme);
     </script>
 </head>
-<body class="bg-light">
+<body class="new-ui">
 <?php include 'navbar.php'; ?>
-<div class="container mt-4 mb-5 pb-5 fade-in">
+<div class="container fade-in">

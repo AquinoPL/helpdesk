@@ -19,15 +19,39 @@ if ($is_logged_in && $user["role"] == "admin") {
 }
 
 $error = '';
+// Guardar valores del POST para repoblar el form si hay error
+$post = [
+    'dni'        => '',
+    'phone'      => '',
+    'first_name' => '',
+    'last_name'  => '',
+    'office_id'  => '',
+    'office_name'=> '',
+    'category'   => '',
+    'title'      => '',
+    'description'=> '',
+];
 if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
-    $dni = trim($_POST['dni']);
-    $phone = trim($_POST['phone']);
-    $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
-    $category = $_POST['category'];
-    $title = trim($_POST['title']);
+    $dni        = trim($_POST['dni']);
+    $phone      = trim($_POST['phone']);
+    $office_id  = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
+    $category   = $_POST['category'];
+    $title      = trim($_POST['title']);
     $description = isset($_POST['description']) ? trim($_POST['description']) : '';
-    $first_name = !empty($_POST['first_name']) ? trim($_POST['first_name']) : 'No Especificado';
-    $last_name = !empty($_POST['last_name']) ? trim($_POST['last_name']) : 'No Especificado';
+    $first_name  = !empty($_POST['first_name']) ? trim($_POST['first_name']) : 'No Especificado';
+    $last_name   = !empty($_POST['last_name'])  ? trim($_POST['last_name'])  : 'No Especificado';
+
+    // Guardar para repoblar
+    $post['dni']         = htmlspecialchars($_POST['dni'] ?? '');
+    $post['phone']       = htmlspecialchars($_POST['phone'] ?? '');
+    $post['first_name']  = htmlspecialchars($_POST['first_name'] ?? '');
+    $post['last_name']   = htmlspecialchars($_POST['last_name'] ?? '');
+    $post['office_id']   = htmlspecialchars($_POST['office_id'] ?? '');
+    $post['office_name'] = htmlspecialchars($_POST['office_name'] ?? '');
+    $post['category']    = htmlspecialchars($_POST['category'] ?? '');
+    $post['title']       = htmlspecialchars($_POST['title'] ?? '');
+    $post['description'] = htmlspecialchars($_POST['description'] ?? '');
+
 
     if (empty($dni) || empty($phone) || empty($office_id) || empty($category) || empty($title)) {
         $error = "Por favor, completa todos los campos obligatorios.";
@@ -39,27 +63,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
             $user_id = $stmtCheck->fetchColumn();
 
             if (!$user_id) {
-                $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?) RETURNING id");
+                $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
-                $user_id = $stmtUser->fetchColumn();
+                $user_id = $conn->lastInsertId();
             } else {
                 $stmtUpdate = $conn->prepare("UPDATE usuarios SET phone = ?, office_id = ? WHERE id = ?");
                 $stmtUpdate->execute([$phone, $office_id, $user_id]);
             }
 
-            $stmt = $conn->prepare("INSERT INTO tickets (user_id, category, title, description, office_id) VALUES (?, ?::ticket_category, ?, ?, ?) RETURNING id");
+            $stmt = $conn->prepare("INSERT INTO tickets (user_id, category, title, description, office_id) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$user_id, $category, $title, $description, $office_id]);
-            $new_ticket_id = $stmt->fetchColumn();
+
+            // El trigger genera el ID; lo recuperamos con la misma logica: MAX(id) del mes actual
+            $prefix = (int) date('Ym');
+            $new_ticket_id = $conn->query("SELECT MAX(id) FROM tickets WHERE id DIV 1000 = $prefix")->fetchColumn();
 
             $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado desde el portal público')");
             $stmtHist->execute([$new_ticket_id]);
 
             // Guardar archivos si los hay
             if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
-                $upload_dir = 'uploads/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
+                // Carpeta organizada por mes: uploads/YYYY-MM/
+                $month_folder = date('Y-m') . '/';
+                $upload_dir   = 'uploads/' . $month_folder;
+                if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
+                if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
 
                 $total = count($_FILES['archivos']['name']);
                 for ($i = 0; $i < $total; $i++) {
@@ -128,11 +156,9 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
         <?php endif; ?>
     </div>
 <?php else: ?>
-    <div class="row mb-4 align-items-center text-center">
-        <div class="col">
-            <h2 class="fw-bold text-primary mb-2">Soporte Técnico Alianza</h2>
-            <p class="text-muted fs-5">Genera tu ticket de atención sin necesidad de iniciar sesión.</p>
-        </div>
+    <div class="hero-public text-center rounded-4 mb-4">
+        <h1 class="fw-bold mb-2">Soporte Técnico Alianza</h1>
+        <p class="fs-5 text-white-50 mb-0">Genera tu ticket de atención sin necesidad de iniciar sesión.</p>
     </div>
 <?php endif; ?>
 
@@ -150,14 +176,14 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     ?>
 
     <!-- TABLA ACTIVOS: USUARIO -->
-    <div class="card glass-card border-0 mb-4">
+    <div class="card card-plain border-0 mb-4">
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0"><i class="bi bi-ticket-detailed text-primary me-2"></i> Mis Tickets Activos</h5>
         </div>
         <div class="card-body p-0 pb-3">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
                             <th>Título</th>
@@ -207,14 +233,14 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     ?>
 
     <!-- TABLA ACTIVOS: TECNICO -->
-    <div class="card glass-card border-0 mb-4">
+    <div class="card card-plain border-0 mb-4">
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0"><i class="bi bi-list-task text-primary me-2"></i> Tickets Asignados Activos</h5>
         </div>
         <div class="card-body p-0 pb-3">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
                             <th>Usuario</th>
@@ -257,28 +283,36 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                 <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
             
-            <div class="card glass-card border-0 p-4 shadow-sm">
+            <div class="card card-plain border-0 p-4 shadow-sm">
                 <form method="POST" enctype="multipart/form-data" id="publicTicketForm">
                     
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-medium text-dark">DNI <span class="text-danger">*</span></label>
-                            <input type="text" name="dni" class="form-control" required placeholder="Tu Documento de Identidad">
+                            <input type="text" name="dni" id="f_dni" class="form-control" required
+                                placeholder="Tu Documento de Identidad"
+                                value="<?php echo $post['dni']; ?>">
+                            <div class="invalid-feedback">Por favor ingresa tu DNI.</div>
                         </div>
                         <div class="col-md-6 mt-3 mt-md-0">
                             <label class="form-label fw-medium text-dark">Teléfono <span class="text-danger">*</span></label>
-                            <input type="text" name="phone" class="form-control" required placeholder="Nro para contactarte">
+                            <input type="text" name="phone" id="f_phone" class="form-control" required
+                                placeholder="Nro para contactarte"
+                                value="<?php echo $post['phone']; ?>">
+                            <div class="invalid-feedback">Por favor ingresa tu teléfono.</div>
                         </div>
                     </div>
 
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label fw-medium text-dark">Nombres (Opcional)</label>
-                            <input type="text" name="first_name" class="form-control" placeholder="Ej: Juan">
+                            <input type="text" name="first_name" class="form-control" placeholder="Ej: Juan"
+                                value="<?php echo $post['first_name']; ?>">
                         </div>
                         <div class="col-md-6 mt-3 mt-md-0">
                             <label class="form-label fw-medium text-dark">Apellidos (Opcional)</label>
-                            <input type="text" name="last_name" class="form-control" placeholder="Ej: Perez">
+                            <input type="text" name="last_name" class="form-control" placeholder="Ej: Perez"
+                                value="<?php echo $post['last_name']; ?>">
                         </div>
                     </div>
 
@@ -287,35 +321,48 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             <label class="form-label fw-medium text-dark">Oficina <span class="text-danger">*</span></label>
                             
                             <div class="input-group">
-                                <input type="hidden" name="office_id" id="public_office_id" required>
-                                <input type="text" class="form-control bg-white" id="public_office_display" placeholder="Haz clic para buscar oficina..." readonly onclick="openOfficeSearch('public_office_id', 'public_office_display')" style="cursor: pointer;">
-                                <button type="button" class="btn btn-outline-primary" onclick="openOfficeSearch('public_office_id', 'public_office_display')">
+                                <!-- office_name se envia para repoblar el display si hay error -->
+                                <input type="hidden" name="office_id"   id="public_office_id"   value="<?php echo $post['office_id']; ?>">
+                                <input type="hidden" name="office_name" id="public_office_name" value="<?php echo $post['office_name']; ?>">
+                                <input type="text" class="form-control bg-white" id="public_office_display"
+                                    placeholder="Haz clic para buscar oficina..."
+                                    value="<?php echo $post['office_name']; ?>"
+                                    readonly onclick="openOfficeSearch('public_office_id','public_office_display','public_office_name')"
+                                    style="cursor:pointer;">
+                                <button type="button" class="btn btn-outline-primary"
+                                    onclick="openOfficeSearch('public_office_id','public_office_display','public_office_name')">
                                     <i class="bi bi-search"></i> Buscar
                                 </button>
                             </div>
+                            <div id="office_error" class="text-danger small mt-1" style="display:none;">Por favor selecciona una oficina.</div>
 
                         </div>
                         <div class="col-md-6 mt-3 mt-md-0">
                             <label class="form-label fw-medium text-dark">Categoría <span class="text-danger">*</span></label>
-                            <select class="form-select" name="category" required>
-                                <option value="" selected disabled>Selecciona una categoría...</option>
-                                <option value="Software">Software</option>
-                                <option value="Hardware">Hardware</option>
-                                <option value="Internet">Internet</option>
-                                <option value="Instalacion">Instalación</option>
-                                <option value="Otro">Otro</option>
+                            <select class="form-select" name="category" id="f_category" required>
+                                <option value="" <?php echo $post['category']==='' ? 'selected disabled' : ''; ?>>Selecciona una categoría...</option>
+                                <option value="Software"    <?php echo $post['category']==='Software'    ? 'selected':''; ?>>Software</option>
+                                <option value="Hardware"    <?php echo $post['category']==='Hardware'    ? 'selected':''; ?>>Hardware</option>
+                                <option value="Internet"    <?php echo $post['category']==='Internet'    ? 'selected':''; ?>>Internet</option>
+                                <option value="Instalacion" <?php echo $post['category']==='Instalacion' ? 'selected':''; ?>>Instalación</option>
+                                <option value="Otro"        <?php echo $post['category']==='Otro'        ? 'selected':''; ?>>Otro</option>
                             </select>
+                            <div class="invalid-feedback">Por favor selecciona una categoría.</div>
                         </div>
                     </div>
 
                     <div class="mb-4">
                         <label class="form-label fw-medium text-dark">Asunto / Título <span class="text-danger">*</span></label>
-                        <input type="text" name="title" class="form-control" required placeholder="Ej: Problema con mi equipo">
+                        <input type="text" name="title" id="f_title" class="form-control" required
+                            placeholder="Ej: Problema con mi equipo"
+                            value="<?php echo $post['title']; ?>">
+                        <div class="invalid-feedback">Por favor ingresa un título.</div>
                     </div>
 
                     <div class="mb-4">
                         <label class="form-label fw-medium text-dark">Descripción <span class="text-muted fw-normal">(Opcional)</span></label>
-                        <textarea name="description" class="form-control" rows="4" placeholder="Detalle su solicitud"></textarea>
+                        <textarea name="description" class="form-control" rows="4"
+                            placeholder="Detalle su solicitud"><?php echo $post['description']; ?></textarea>
                     </div>
 
                     <!-- Evidencias Adjuntas (Máximo 5 archivos) -->
@@ -427,9 +474,33 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     const publicForm = document.getElementById('publicTicketForm');
                     if (publicForm) {
                         publicForm.addEventListener('submit', function(e) {
-                            if(selectedFiles.length > MAX_FILES) {
+                            let valid = true;
+
+                            // Validar campos nativos con Bootstrap
+                            publicForm.classList.add('was-validated');
+
+                            // Validar office_id (hidden no dispara :invalid nativo)
+                            const officeId  = document.getElementById('public_office_id');
+                            const officeErr = document.getElementById('office_error');
+                            if (!officeId.value) {
+                                officeErr.style.display = 'block';
+                                document.getElementById('public_office_display').classList.add('is-invalid');
+                                valid = false;
+                            } else {
+                                officeErr.style.display = 'none';
+                                document.getElementById('public_office_display').classList.remove('is-invalid');
+                            }
+
+                            // Validar límite de archivos
+                            if (selectedFiles.length > MAX_FILES) {
                                 e.preventDefault();
                                 alert('Por favor remueve archivos para cumplir el límite de ' + MAX_FILES + '.');
+                                return;
+                            }
+
+                            if (!publicForm.checkValidity() || !valid) {
+                                e.preventDefault();
+                                e.stopPropagation();
                             }
                         });
                     }
@@ -463,8 +534,8 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     let targetOfficeIdInput = '';
     let targetOfficeDisplayInput = '';
     
-    function openOfficeSearch(idField, displayField) {
-        targetOfficeIdInput = idField;
+    function openOfficeSearch(idField, displayField, nameField) {
+        targetOfficeIdInput   = idField;
         targetOfficeDisplayInput = displayField;
         const modal = new bootstrap.Modal(document.getElementById('officeSearchModal'));
         document.getElementById('officeSearchInput').value = '';
@@ -500,6 +571,13 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         btn.onclick = () => {
                             document.getElementById(targetOfficeIdInput).value = of.id;
                             document.getElementById(targetOfficeDisplayInput).value = of.name;
+                            // Guardar nombre para repoblar si hay error de servidor
+                            const nameInput = document.getElementById('public_office_name');
+                            if (nameInput) nameInput.value = of.name;
+                            // Limpiar error visual si habia
+                            document.getElementById('public_office_display').classList.remove('is-invalid');
+                            const errEl = document.getElementById('office_error');
+                            if (errEl) errEl.style.display = 'none';
                             bootstrap.Modal.getInstance(document.getElementById('officeSearchModal')).hide();
                         };
                         results.appendChild(btn);

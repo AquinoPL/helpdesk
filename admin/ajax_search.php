@@ -22,7 +22,7 @@ if (is_numeric($search)) {
     $whereTickets .= " AND t.id = ?";
     $paramsTickets[] = (int)$search;
 } else {
-    $whereTickets .= " AND t.title ILIKE ?";
+    $whereTickets .= " AND t.title LIKE ?";
     $paramsTickets[] = "%$search%";
 }
 
@@ -40,7 +40,7 @@ $tickets = $stmtTickets->fetchAll(PDO::FETCH_ASSOC);
 $stmtUsers = $conn->prepare("
     SELECT id, first_name, last_name, dni, email 
     FROM usuarios 
-    WHERE first_name ILIKE ? OR last_name ILIKE ? OR dni ILIKE ? 
+    WHERE first_name LIKE ? OR last_name LIKE ? OR dni LIKE ? 
     LIMIT 4
 ");
 $wildcard = "%$search%";
@@ -51,7 +51,7 @@ $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 $stmtTech = $conn->prepare("
     SELECT id, first_name, last_name, dni, role 
     FROM trabajadores 
-    WHERE first_name ILIKE ? OR last_name ILIKE ? OR dni ILIKE ? 
+    WHERE first_name LIKE ? OR last_name LIKE ? OR dni LIKE ? 
     LIMIT 3
 ");
 $stmtTech->execute([$wildcard, $wildcard, $wildcard]);

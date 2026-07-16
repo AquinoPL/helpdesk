@@ -161,7 +161,7 @@ endif;
         </div>
 
         <div id="tech-comment-container" style="display: <?php echo !empty($ticket['tech_comment']) ? 'block' : 'none'; ?>">
-            <div class="card glass-card border-0 mb-4 fade-in border-start border-4 border-dark">
+            <div class="card card-plain border-0 mb-4 fade-in border-start border-4 border-dark">
                 <div class="card-body p-4 bg-white rounded-3 shadow-sm">
                     <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-tools text-primary me-2"></i> Reporte del Técnico</h5>
                     <div id="tech-comment-content" class="p-3 bg-light rounded border" style="white-space: pre-wrap; font-size:1.05rem; color: #333; line-height: 1.6;"><?php echo htmlspecialchars($ticket['tech_comment'] ?? ''); ?></div>
@@ -169,7 +169,7 @@ endif;
             </div>
         </div>
 
-        <div class="card glass-card border-0 position-relative mb-4">
+        <div class="card card-plain border-0 position-relative mb-4">
             <div class="card-body p-4 p-md-5">
                 <h5 class="fw-bold mb-4 mt-1"><i class="bi bi-hourglass-split text-primary me-2"></i> Línea de Tiempo</h5>
                 

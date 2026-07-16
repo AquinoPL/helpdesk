@@ -16,14 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $new_description = trim($_POST['description']);
     $new_tech_comment = trim($_POST['tech_comment'] ?? '');
     
-    $stmt = $conn->prepare("UPDATE tickets SET title = ?, category = ?::ticket_category, description = ?, tech_comment = ? WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE tickets SET title = ?, category = ?, description = ?, tech_comment = ? WHERE id = ?");
     $stmt->execute([$new_title, $new_category, $new_description, $new_tech_comment, $edit_id]);
     
     $stC = $conn->prepare("SELECT status FROM tickets WHERE id = ?");
     $stC->execute([$edit_id]);
     $c_stat = $stC->fetchColumn() ?: 'Pendiente';
     
-    $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, 'El administrador reescribió los detalles del ticket')");
+    $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?, ?, 'El administrador reescribió los detalles del ticket')");
     $stmtHist->execute([$edit_id, $c_stat, $_SESSION['user']['id']]);
     
     header("Location: tickets.php?success=edited");
@@ -41,7 +41,7 @@ $where = "1=1";
 $params = [];
 
 if ($search !== '') {
-    $where .= " AND (t.id::TEXT ILIKE ? OR t.title ILIKE ? OR u.first_name ILIKE ? OR u.last_name ILIKE ?)";
+    $where .= " AND (CAST(t.id AS CHAR) LIKE ? OR t.title LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)";
     $wildcard = "%$search%";
     $params[] = $wildcard;
     $params[] = $wildcard;
@@ -106,7 +106,7 @@ function getQueryStringParams($newPage) {
 <?php endif; ?>
 
 <!-- Filtros de Búsqueda -->
-<div class="card glass-card border-0 mb-4 fade-in">
+<div class="card card-plain border-0 mb-4 fade-in">
     <div class="card-body p-4">
         <form method="GET" action="tickets.php" class="row g-3">
             <div class="col-md-5">
@@ -145,7 +145,7 @@ function getQueryStringParams($newPage) {
 </div>
 
 <!-- Tabla Exhaustiva -->
-<div class="card glass-card border-0 fade-in">
+<div class="card card-plain border-0 fade-in">
     <div class="card-body p-2">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 table-borderless" style="border-spacing: 0 8px; border-collapse: separate;">

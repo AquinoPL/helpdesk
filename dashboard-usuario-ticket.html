@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soporte · Mesa de Ayuda</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --deep: #12324a;
+            --deep-2: #1a4563;
+            --bg: #eef2f5;
+            --accent: #2b8f9e;
+            --urgent: #d64545;
+            --high: #e08a2f;
+            --normal: #2b8f9e;
+            --low: #7a869a;
+            --line: #dfe5ea;
+            --muted: #6b7a8a;
+        }
+
+        body {
+            background: var(--bg);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #1c2b36;
+        }
+
+        .navbar-public {
+            background: var(--deep);
+            padding: .9rem 1.6rem;
+        }
+
+        .navbar-public .brand {
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .hero-public {
+            background: linear-gradient(135deg, var(--deep) 0%, var(--deep-2) 70%);
+            color: #fff;
+            padding: 3rem 1.5rem 4rem;
+            text-align: center;
+        }
+
+        .hero-public p {
+            color: #c7d9e2;
+        }
+
+        .card-plain {
+            border: none;
+            border-radius: .6rem;
+            box-shadow: 0 1px 3px rgba(20, 30, 50, .06);
+            background: #fff;
+        }
+
+        .nav-tabs-public .nav-link {
+            color: var(--muted);
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: .9rem;
+        }
+
+        .nav-tabs-public .nav-link.active {
+            color: var(--deep);
+            border-bottom: 2px solid var(--accent);
+            font-weight: 600;
+            background: transparent;
+        }
+
+        .priority-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: .4rem;
+        }
+
+        .p-urgente {
+            background: var(--urgent);
+        }
+
+        .p-normal {
+            background: var(--normal);
+        }
+
+        .badge-status {
+            font-weight: 500;
+            font-size: .72rem;
+        }
+
+        .msg {
+            border-radius: .6rem;
+            padding: .7rem .9rem;
+            margin-bottom: .6rem;
+            font-size: .87rem;
+        }
+
+        .msg-client {
+            background: #f2f5f7;
+        }
+
+        .msg-agent {
+            background: #e7f1f4;
+            border: 1px solid #d3e5ea;
+        }
+
+        .folio-big {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--deep);
+            letter-spacing: .03em;
+        }
+
+        .steps-mini {
+            display: flex;
+            gap: .5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .steps-mini .step {
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .15);
+            border-radius: .5rem;
+            padding: .6rem 1rem;
+            font-size: .8rem;
+            color: #dbe8ee;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar-public d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="brand"><i class="bi bi-headset me-2"></i>HelpDesk<span style="color:var(--accent)">.</span></div>
+        <div class="d-flex gap-2">
+            <a href="#" class="btn btn-sm btn-outline-light">Iniciar sesión</a>
+            <a href="#" class="btn btn-sm text-white" style="background:var(--accent)">Crear cuenta</a>
+        </div>
+    </nav>
+
+    <div class="hero-public">
+        <h2 class="fw-bold mb-2">¿Necesitas ayuda?</h2>
+        <p class="mb-0">Reporta un problema sin necesidad de crear una cuenta, o consulta el estado de un ticket que
+            ya enviaste.</p>
+        <div class="steps-mini">
+            <div class="step"><i class="bi bi-1-circle me-1"></i>Cuéntanos qué pasa</div>
+            <div class="step"><i class="bi bi-2-circle me-1"></i>Recibe un folio</div>
+            <div class="step"><i class="bi bi-3-circle me-1"></i>Da seguimiento cuando quieras</div>
+        </div>
+    </div>
+
+    <div class="container" style="margin-top:-2.5rem; padding-bottom:3rem;">
+        <div class="card card-plain p-4 p-md-5 mx-auto" style="max-width:780px;">
+            <ul class="nav nav-tabs-public mb-4">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#pane-reportar">Reportar un
+                        problema</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pane-consultar">Consultar mi
+                        ticket</a></li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- Reportar -->
+                <div class="tab-pane fade show active" id="pane-reportar">
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small">Nombre</label>
+                            <input class="form-control" placeholder="Tu nombre">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small">Correo</label>
+                            <input type="email" class="form-control" placeholder="tucorreo@ejemplo.com">
+                        </div>
+                        <div class="col-md-8 mb-2">
+                            <label class="form-label small">Asunto</label>
+                            <input class="form-control" placeholder="Describe el problema en pocas palabras">
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label small">Categoría</label>
+                            <select class="form-select">
+                                <option>Facturación</option>
+                                <option>Accesos</option>
+                                <option>Soporte técnico</option>
+                                <option>Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label small">Descripción</label>
+                            <textarea class="form-control" rows="4"
+                                placeholder="Cuéntanos con detalle qué sucede..."></textarea>
+                        </div>
+                    </div>
+                    <button class="btn text-white w-100" style="background:var(--accent)">Enviar reporte</button>
+                    <p class="small text-center mt-3 mb-0" style="color:var(--muted)">Al enviar tu reporte recibirás
+                        un número de folio para darle seguimiento.</p>
+                </div>
+
+                <!-- Consultar -->
+                <div class="tab-pane fade" id="pane-consultar">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small">Folio</label>
+                            <input class="form-control" placeholder="Ej. 4830" value="4830">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small">Correo</label>
+                            <input type="email" class="form-control" placeholder="Correo con el que reportaste"
+                                value="laura@ejemplo.com">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn w-100 text-white" style="background:var(--deep)">Ver</button>
+                        </div>
+                    </div>
+
+                    <!-- Resultado de ejemplo -->
+                    <div class="card card-plain p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="small" style="color:var(--muted)">Ticket #4830 · Soporte técnico</div>
+                                <h6 class="mb-0">No puedo iniciar sesión en el portal de clientes</h6>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary badge-status">Abierto</span>
+                        </div>
+                        <div class="small mb-2" style="color:var(--muted)">Reportado por Laura Gómez · hace 3 h</div>
+                        <div class="mb-3" style="max-height:200px; overflow-y:auto;">
+                            <div class="msg msg-client">
+                                <div class="fw-semibold small mb-1">Laura Gómez</div>
+                                Intento iniciar sesión y me marca "credenciales inválidas" aunque uso la contraseña
+                                correcta.
+                            </div>
+                            <div class="msg msg-agent">
+                                <div class="fw-semibold small mb-1">Ana Villalba · Agente</div>
+                                Gracias por avisarnos, ya identificamos el problema en el portal y lo estamos
+                                corrigiendo.
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm">
+                            <textarea class="form-control" rows="2" placeholder="Agregar más información..."></textarea>
+                            <button class="btn text-white" style="background:var(--accent)"><i
+                                    class="bi bi-send"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center small mt-4" style="color:var(--muted)">¿Ya tienes cuenta? <a href="#"
+                style="color:var(--accent)">Inicia sesión</a> para ver todo tu historial de tickets.</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

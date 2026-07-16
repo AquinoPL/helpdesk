@@ -74,35 +74,35 @@ if ($tech_id) {
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="fw-bold mb-0">Vista de Técnico</h2>
-        <p class="text-muted mb-0">Supervisa las bandejas o asume el rol interactivo de tus técnicos.</p>
+        <h4 class="fw-bold mb-0">Vista de Técnico</h4>
+        <div class="text-muted small">Supervisa las bandejas o asume el rol interactivo de tus técnicos.</div>
     </div>
     <?php if ($tech_id): ?>
     <div>
-        <a href="vista_tecnico.php" class="btn btn-outline-secondary"><i class="bi bi-grid me-2"></i>Volver al Directorio</a>
+        <a href="vista_tecnico.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-grid me-1"></i> Directorio</a>
     </div>
     <?php endif; ?>
 </div>
 
 <?php if (!$tech_id): ?>
     <!-- DIRECTORIO DE TÉCNICOS (GRID UI) -->
-    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4 mb-5">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-5">
         <?php foreach ($technicians as $tech): ?>
         <div class="col">
-            <a href="?tech_id=<?php echo $tech['id']; ?>" class="card h-100 border-0 shadow-sm text-decoration-none glass-card stat-card-clickable" style="transition: transform 0.2s, box-shadow 0.2s;">
+            <a href="?tech_id=<?php echo $tech['id']; ?>" class="card kpi-card h-100 text-decoration-none" style="transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
                 <div class="card-body p-4 text-center">
-                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
-                        <i class="bi bi-person-workspace fs-1"></i>
+                    <div class="avatar-circle mx-auto mb-3" style="width: 60px; height: 60px; font-size: 1.5rem; background: var(--deep-2);">
+                        <i class="bi bi-person-workspace"></i>
                     </div>
-                    <h5 class="fw-bold text-dark mb-1"><?php echo htmlspecialchars($tech['first_name'] . ' ' . $tech['last_name']); ?></h5>
-                    <p class="text-muted small mb-3">DNI: <?php echo htmlspecialchars($tech['dni']); ?></p>
+                    <h6 class="fw-bold text-dark mb-1"><?php echo htmlspecialchars($tech['first_name'] . ' ' . $tech['last_name']); ?></h6>
+                    <p class="text-muted small mb-3" style="font-size: .75rem;">DNI: <?php echo htmlspecialchars($tech['dni']); ?></p>
                     
-                    <div class="d-flex justify-content-center gap-3">
-                        <div class="badge bg-light text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill">
-                            <i class="bi bi-activity me-1"></i> <?php echo $tech['active_count']; ?> Activos
+                    <div class="d-flex justify-content-center gap-2">
+                        <div class="badge bg-light text-primary border px-2 py-1">
+                            <?php echo $tech['active_count']; ?> Activos
                         </div>
-                        <div class="badge bg-light text-secondary border border-secondary border-opacity-25 px-3 py-2 rounded-pill">
-                            <i class="bi bi-check2-all me-1"></i> <?php echo $tech['finished_count']; ?> Finalizados
+                        <div class="badge bg-light text-secondary border px-2 py-1">
+                            <?php echo $tech['finished_count']; ?> Finalizados
                         </div>
                     </div>
                 </div>
@@ -112,55 +112,50 @@ if ($tech_id) {
     </div>
 <?php else: ?>
     <!-- VISTA DEL TÉCNICO SELECCIONADO -->
-    <div class="card border-0 shadow-sm mb-4 bg-primary text-white bg-opacity-75" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
-        <div class="card-body p-4 d-flex align-items-center">
-            <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center me-4 shadow-sm" style="width: 60px; height: 60px;">
-                <i class="bi bi-person-fill fs-2"></i>
+    <div class="card card-plain mb-4" style="border-left: 4px solid var(--accent);">
+        <div class="card-body p-3 d-flex align-items-center">
+            <div class="avatar-circle me-3" style="background: var(--accent);">
+                <i class="bi bi-person-fill"></i>
             </div>
             <div>
-                <h4 class="fw-bold mb-1">Bandeja de: <?php echo htmlspecialchars($selected_tech_name); ?></h4>
-                <p class="mb-0 text-white-50"><i class="bi bi-shield-lock me-1"></i> Tienes permiso para operar en su nombre.</p>
+                <h6 class="fw-bold mb-0">Bandeja de: <?php echo htmlspecialchars($selected_tech_name); ?></h6>
+                <div class="text-muted small" style="font-size:.75rem;"><i class="bi bi-shield-lock me-1"></i> Tienes permiso para operar en su nombre.</div>
             </div>
         </div>
     </div>
 
     <!-- TABLA ACTIVOS: TECNICO -->
-    <div class="card glass-card border-0 mb-4 shadow-sm">
-        <div class="card-header bg-white border-bottom pt-4 pb-3">
-            <h5 class="fw-bold mb-0"><i class="bi bi-list-task text-primary me-2"></i> Tickets Asignados Activos</h5>
+    <div class="card card-plain mb-4">
+        <div class="card-header bg-transparent border-0 pt-4 pb-0 px-4">
+            <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-list-task me-1"></i> Tickets Asignados Activos</h6>
         </div>
-        <div class="card-body p-0 pb-3">
+        <div class="card-body px-4 pt-3 pb-4">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th class="ps-4">Ticket</th>
+                            <th>Folio</th>
                             <th>Usuario</th>
-                            <th>Título</th>
+                            <th>Asunto</th>
                             <th>Categoría</th>
                             <th>Estado</th>
-                            <th class="text-end pe-4">Acción</th>
+                            <th class="text-end">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
-                            <?php foreach ($tickets_ac as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                            ?>
-                                <tr class="ticket-row"
-                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
-                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
+                            <?php foreach ($tickets_ac as $t): ?>
+                                <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                    <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                    <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                    <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-primary rounded-pill px-3">Impersonar</a></td>
+                                    <td><span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($t['category']); ?></span></td>
+                                    <td><span class="badge badge-status badge-<?php echo str_replace(' ', '-', $t['current_status']); ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                                    <td class="text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-primary">Impersonar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">El técnico no tiene tickets activos en esta bandeja.</td>
-                            </tr>
+                            <tr><td colspan="6" class="text-center py-4 text-muted">El técnico no tiene tickets activos.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -170,42 +165,37 @@ if ($tech_id) {
     </div>
 
     <!-- TABLA FINALIZADOS: TECNICO -->
-    <div class="card glass-card border-0 mb-4 shadow-sm opacity-75">
-        <div class="card-header bg-white border-bottom pt-4 pb-3">
-            <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-2"></i> Historial de Tickets Atendidos</h5>
+    <div class="card card-plain mb-4 opacity-75">
+        <div class="card-header bg-transparent border-0 pt-4 pb-0 px-4">
+            <h6 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-1"></i> Historial Atendidos</h6>
         </div>
-        <div class="card-body p-0 pb-3">
+        <div class="card-body px-4 pt-3 pb-4">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
+                <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th class="ps-4">Ticket</th>
+                            <th>Folio</th>
                             <th>Usuario</th>
-                            <th>Título</th>
+                            <th>Asunto</th>
                             <th>Categoría</th>
                             <th>Estado</th>
-                            <th class="text-end pe-4">Acción</th>
+                            <th class="text-end">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($tickets_fi) > 0): ?>
-                            <?php foreach ($tickets_fi as $t):
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                                ?>
-                                <tr class="ticket-row"
-                                    onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
-                                    <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
+                            <?php foreach ($tickets_fi as $t): ?>
+                                <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                    <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                    <td><?php echo htmlspecialchars($t['category']); ?></td>
-                                    <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                    <td class="pe-4 text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
+                                    <td><span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($t['category']); ?></span></td>
+                                    <td><span class="badge badge-status badge-<?php echo str_replace(' ', '-', $t['current_status']); ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                                    <td class="text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-secondary">Revisar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">El técnico no tiene tickets finalizados en el historial.</td>
-                            </tr>
+                            <tr><td colspan="6" class="text-center py-4 text-muted">El técnico no tiene tickets finalizados.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -214,12 +204,5 @@ if ($tech_id) {
         </div>
     </div>
 <?php endif; ?>
-
-<style>
-.stat-card-clickable:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-}
-</style>
 
 <?php require 'includes/admin_footer.php'; ?>

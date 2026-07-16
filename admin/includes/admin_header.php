@@ -17,160 +17,87 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración - Soporte</title>
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS Base -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
-    <style>
-        body { background-color: #f8f9fa; display: flex; min-height: 100vh; overflow-x: hidden; margin: 0; }
-        
-        /* Sidebar Styles */
-        .admin-sidebar {
-            width: 280px;
-            background: linear-gradient(135deg, #2b3035 0%, #1e2225 100%);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s;
-            position: fixed;
-            height: 100vh;
-            z-index: 1050;
-        }
-        .admin-main-content {
-            margin-left: 280px;
-            width: calc(100% - 280px);
-            padding: 2rem;
-            transition: all 0.3s;
-        }
-
-        .sidebar-brand { font-size: 1.5rem; font-weight: 700; padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sidebar-menu { flex-grow: 1; padding: 1rem 0; overflow-y: auto; }
-        .nav-item-sidebar { margin: 0.25rem 1rem; }
-        
-        .nav-link-sidebar {
-            display: flex;
-            align-items: center;
-            color: rgba(255,255,255,0.85) !important;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-        .nav-link-sidebar i { margin-right: 0.75rem; font-size: 1.2rem; }
-        .nav-link-sidebar:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
-        .nav-link-sidebar.active { color: #fff !important; background: var(--bs-primary); box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3); }
-
-        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); }
-        
-        /* Mobile handling */
-        @media (max-width: 991.98px) {
-            .admin-sidebar { margin-left: -280px; }
-            .admin-sidebar.show { margin-left: 0; }
-            .admin-main-content { margin-left: 0; width: 100%; padding: 1rem; }
-            .admin-main-content.pushed { margin-left: 280px; width: auto; }
-        }
-        .mobile-toggle { display: none; }
-        @media (max-width: 991.98px) { .mobile-toggle { display: block; } }
-    </style>
-    <!-- Theme Script -->
-    <script>
-        const storedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-bs-theme', storedTheme);
-    </script>
 </head>
-<body>
+<body class="new-ui">
 
-<!-- Sidebar -->
-<aside class="admin-sidebar" id="sidebar">
-    <div class="sidebar-brand text-center d-flex align-items-center justify-content-center">
-        <i class="bi bi-shield-check text-primary me-2"></i>
-        <span>Admin Panel</span>
-    </div>
-    
-    <!-- Perfil del Usuario Actual -->
-    <div class="px-4 py-3 text-center border-bottom" style="border-color: rgba(255,255,255,0.05) !important;">
-        <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-25 text-primary rounded-circle mb-2" style="width: 50px; height: 50px; font-size: 1.5rem; border: 2px solid var(--bs-primary);">
-            <?php 
-                $initials = strtoupper(substr($user_session['first_name'] ?? 'A', 0, 1) . substr($user_session['last_name'] ?? 'U', 0, 1));
-                echo htmlspecialchars($initials); 
-            ?>
+    <nav class="sidebar" id="sidebar">
+        <a href="<?php echo BASE_URL; ?>/index.php" class="text-decoration-none">
+            <div class="brand"><i class="bi bi-headset"></i> HelpDesk<span style="color:var(--accent)">.</span></div>
+        </a>
+        <div class="nav flex-column mt-2">
+            <a class="nav-link <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?> d-flex align-items-center" href="<?php echo BASE_URL; ?>/admin/dashboard.php">
+                <i class="bi bi-grid-1x2 me-2"></i>Dashboard
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'tickets.php' ? 'active' : ''; ?> d-flex align-items-center" href="<?php echo BASE_URL; ?>/admin/tickets.php">
+                <i class="bi bi-ticket-detailed me-2"></i>Tickets
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'crear_ticket.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/crear_ticket.php">
+                <i class="bi bi-plus-circle me-2"></i>Crear Ticket
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'vista_tecnico.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/vista_tecnico.php">
+                <i class="bi bi-eye me-2"></i>Ver como Técnico
+            </a>
+            
+            <hr class="mx-3" style="border-color:rgba(255,255,255,.1)">
+            
+            <a class="nav-link <?php echo $currentPage == 'usuarios.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/usuarios.php">
+                <i class="bi bi-people me-2"></i>Usuarios
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'trabajadores.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/trabajadores.php">
+                <i class="bi bi-person-lines-fill me-2"></i>Técnicos/Admins
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'oficinas.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/oficinas.php">
+                <i class="bi bi-building me-2"></i>Oficinas
+            </a>
+            
+            <hr class="mx-3" style="border-color:rgba(255,255,255,.1)">
+            <a class="nav-link <?php echo $currentPage == 'reportes.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/reportes.php">
+                <i class="bi bi-graph-up me-2"></i>Reportes y SLA
+            </a>
+            <a class="nav-link <?php echo $currentPage == 'configuracion.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/configuracion.php">
+                <i class="bi bi-gear me-2"></i>Configuración
+            </a>
+            <a class="nav-link text-danger" href="<?php echo BASE_URL; ?>/logout.php">
+                <i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+            </a>
         </div>
-        <div class="fw-bold text-white lh-sm"><?php echo htmlspecialchars($user_session['first_name'] . ' ' . $user_session['last_name']); ?></div>
-        <div class="small text-light opacity-75 mt-1" style="font-size: 0.8rem;"><i class="bi bi-person-vcard me-1"></i> <?php echo isset($user_session['dni']) ? htmlspecialchars($user_session['dni']) : 'ID: ' . htmlspecialchars($user_session['id']); ?></div>
-        <div class="badge bg-primary bg-opacity-25 text-white border border-primary mt-2 fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.5px;">
-            <i class="bi bi-shield-lock-fill me-1"></i> <?php echo htmlspecialchars($user_session['role']); ?>
-        </div>
-    </div>
-    
-    <div class="sidebar-menu">
-        <div class="px-4 py-2 text-uppercase small fw-bold text-light opacity-75" style="letter-spacing: 0.5px; font-size: 0.7rem;">Gestión Principal</div>
         
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/dashboard.php" class="nav-link-sidebar <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?>">
-                <i class="bi bi-grid-1x2"></i> Dashboard
-            </a>
+        <div class="user-box">
+            <div class="d-flex align-items-center gap-2">
+                <span class="avatar-circle sm">
+                    <?php 
+                        $initials = strtoupper(substr($user_session['first_name'] ?? 'A', 0, 1) . substr($user_session['last_name'] ?? 'U', 0, 1));
+                        echo htmlspecialchars($initials); 
+                    ?>
+                </span>
+                <div>
+                    <div class="text-white small fw-bold lh-1"><?php echo htmlspecialchars($user_session['first_name'] . ' ' . $user_session['last_name']); ?></div>
+                    <div style="font-size:.7rem; margin-top:2px;" class="text-uppercase"><?php echo htmlspecialchars($user_session['role']); ?></div>
+                </div>
+            </div>
         </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/tickets.php" class="nav-link-sidebar <?php echo $currentPage == 'tickets.php' ? 'active' : ''; ?>">
-                <i class="bi bi-ticket-detailed"></i> Control de Tickets
-            </a>
-        </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/crear_ticket.php" class="nav-link-sidebar <?php echo $currentPage == 'crear_ticket.php' ? 'active' : ''; ?>">
-                <i class="bi bi-plus-circle"></i> Crear Ticket
-            </a>
-        </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/vista_tecnico.php" class="nav-link-sidebar <?php echo $currentPage == 'vista_tecnico.php' ? 'active' : ''; ?>">
-                <i class="bi bi-eye"></i> Ver como Técnico
-            </a>
+    </nav>
+
+    <div class="main" id="main-content">
+        <div class="topbar flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-sm btn-outline-secondary d-lg-none me-3" id="btnToggleSidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div>
+                    <h5 class="mb-0 fw-bold">Administración</h5>
+                    <div class="small" style="color:var(--muted)">Sistema de Soporte</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="text-muted"><i class="bi bi-gear"></i></a>
+                <span class="avatar-circle"><?php echo htmlspecialchars($initials); ?></span>
+            </div>
         </div>
 
-        <div class="px-4 py-2 mt-2 text-uppercase small fw-bold text-light opacity-75" style="letter-spacing: 0.5px; font-size: 0.7rem;">Directorio</div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/usuarios.php" class="nav-link-sidebar <?php echo $currentPage == 'usuarios.php' ? 'active' : ''; ?>">
-                <i class="bi bi-people"></i> Usuarios
-            </a>
-        </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/trabajadores.php" class="nav-link-sidebar <?php echo $currentPage == 'trabajadores.php' ? 'active' : ''; ?>">
-                <i class="bi bi-person-lines-fill"></i> Técnicos / Admins
-            </a>
-        </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/oficinas.php" class="nav-link-sidebar <?php echo $currentPage == 'oficinas.php' ? 'active' : ''; ?>">
-                <i class="bi bi-building"></i> Oficinas
-            </a>
-        </div>
-    </div>
-    
-    <div class="sidebar-footer">
-        <!-- Usuario Perfil Shortcut -->
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="nav-link-sidebar <?php echo $currentPage == 'configuracion.php' ? 'active' : 'bg-dark border border-secondary border-opacity-25 text-white'; ?> mb-2">
-                <i class="bi bi-gear-fill"></i> Configuración
-            </a>
-        </div>
-        <div class="nav-item-sidebar">
-            <a href="<?php echo BASE_URL; ?>/logout.php" class="nav-link-sidebar bg-danger bg-opacity-25 text-danger border-0">
-                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
-            </a>
-        </div>
-    </div>
-</aside>
-
-<!-- Main Wrapper -->
-<main class="admin-main-content fade-in" id="main-content">
-    
-    <!-- Mobile Toggle Navbar -->
-    <div class="d-flex align-items-center mb-4 mobile-toggle">
-        <button class="btn btn-primary shadow-sm" id="btnToggleSidebar">
-            <i class="bi bi-list"></i> Menú
-        </button>
-        <span class="ms-3 fw-bold text-dark fs-5">Admin Panel</span>
-    </div>
+        <div class="p-4 fade-in">

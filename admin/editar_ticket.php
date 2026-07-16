@@ -32,10 +32,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         $technician_id = !empty($_POST['technician_id']) ? $_POST['technician_id'] : null;
         $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
 
-        $stmt = $conn->prepare("UPDATE tickets SET title=?, category=?::ticket_category, description=?, tech_comment=?, user_id=?, technician_id=?, office_id=? WHERE id=?");
+        $stmt = $conn->prepare("UPDATE tickets SET title=?, category=?, description=?, tech_comment=?, user_id=?, technician_id=?, office_id=? WHERE id=?");
         $stmt->execute([$title, $category, $description, $tech_comment, $user_id, $technician_id, $office_id, $ticket_id]);
 
-        $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?::ticket_status, ?, 'El administrador modificó los atributos y contexto del ticket desde el panel.')");
+        $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, changed_by, comment) VALUES (?, ?, ?, 'El administrador modificó los atributos y contexto del ticket desde el panel.')");
         $stmtHist->execute([$ticket_id, $current_status, $_SESSION['user']['id']]);
         
         $success = "El ticket ha sido modificado y actualizado existosamente.";
@@ -94,7 +94,7 @@ require 'includes/admin_header.php';
 
 
 
-<div class="card glass-card border-0 mb-5 fade-in">
+<div class="card card-plain border-0 mb-5 fade-in">
     <div class="card-body p-4 p-lg-5">
         <form method="POST">
             <input type="hidden" name="action" value="update_ticket">

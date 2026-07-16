@@ -117,7 +117,7 @@ require 'includes/header.php';
 
     <!-- Panel Izquierdo: Menú de Pestañas Verticales -->
     <div class="col-md-4 col-lg-3 mb-4">
-        <div class="card glass-card border-0 p-2 h-100 fade-in shadow-sm">
+        <div class="card card-plain border-0 p-2 h-100 fade-in shadow-sm">
             <div class="nav flex-column nav-pills" id="settings-tabs" role="tablist" aria-orientation="vertical">
                 <button class="nav-link active text-start py-3 mb-1 rounded-3 fw-medium d-flex align-items-center" id="tab-perfil-btn" data-bs-toggle="pill" data-bs-target="#panel-perfil" type="button" role="tab" aria-selected="true">
                     <i class="bi bi-person-badge fs-5 me-3"></i> Información Personal
@@ -151,7 +151,7 @@ require 'includes/header.php';
             
             <!-- PANEL: INFORMACIÓN PERSONAL -->
             <div class="tab-pane fade show active" id="panel-perfil" role="tabpanel" aria-labelledby="tab-perfil-btn">
-                <div class="card glass-card border-0 p-4 p-md-5">
+                <div class="card card-plain border-0 p-4 p-md-5">
                     <h4 class="fw-bold text-dark mb-4 border-bottom pb-2">Información Personal</h4>
                     <p class="text-muted mb-4">Actualice sus datos personales. El nivel de acceso (rol) no puede ser modificado desde esta sección.</p>
                     <form method="POST">
@@ -185,7 +185,7 @@ require 'includes/header.php';
 
             <!-- PANEL: OPCIONES DE CONTACTO -->
             <div class="tab-pane fade" id="panel-contacto" role="tabpanel" aria-labelledby="tab-contacto-btn">
-                <div class="card glass-card border-0 p-4 p-md-5">
+                <div class="card card-plain border-0 p-4 p-md-5">
                     <h4 class="fw-bold text-dark mb-4 border-bottom pb-2">Opciones de Contacto</h4>
                     <form method="POST">
                         <input type="hidden" name="section" value="contacto">
@@ -219,7 +219,7 @@ require 'includes/header.php';
 
             <!-- PANEL: SEGURIDAD -->
             <div class="tab-pane fade" id="panel-seguridad" role="tabpanel" aria-labelledby="tab-seguridad-btn">
-                <div class="card glass-card border-0 p-4 p-md-5">
+                <div class="card card-plain border-0 p-4 p-md-5">
                     <h4 class="fw-bold text-dark mb-4 border-bottom pb-2">Cambiar Contraseña</h4>
                     <form method="POST">
                         <input type="hidden" name="section" value="seguridad">

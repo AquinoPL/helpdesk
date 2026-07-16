@@ -35,10 +35,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 } else {
                     $stmtUser = $conn->prepare("
                         INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) 
-                        VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+                        VALUES (?, ?, ?, ?, ?, ?)
                     ");
                     $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
-                    $user_id = $stmtUser->fetchColumn();
+                    $user_id = $conn->lastInsertId();
                 }
             } else {
                  // Optionally update phone or office
@@ -49,13 +49,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Guardar ticket
             $stmt = $conn->prepare("
                 INSERT INTO tickets (user_id, category, title, description, office_id) 
-                VALUES (?, ?::ticket_category, ?, ?, ?) RETURNING id
+                VALUES (?, ?, ?, ?, ?)
             ");
             $stmt->execute([$user_id, $category, $title, $description, $office_id]);
-            $new_ticket_id = $stmt->fetchColumn();
+
+            // El trigger genera el ID; lo recuperamos con la misma logica: MAX(id) del mes actual
+            $prefix = (int) date('Ym');
+            $new_ticket_id = $conn->query("SELECT MAX(id) FROM tickets WHERE id DIV 1000 = $prefix")->fetchColumn();
 
             $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment, changed_by) VALUES (?, 'Pendiente', 'Ticket creado (Admin)', ?)");
             $stmtHist->execute([$new_ticket_id, $_SESSION['user']['id']]);
+
+            // Guardar archivos adjuntos si los hay
+            if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
+                // Carpeta organizada por mes: uploads/YYYY-MM/
+                $month_folder  = date('Y-m') . '/';
+                $upload_dir    = '../uploads/' . $month_folder;   // ruta fisica desde /admin/
+                $upload_dir_db = 'uploads/'    . $month_folder;   // ruta que se guarda en BD
+                if (!is_dir('../uploads/')) mkdir('../uploads/', 0777, true);
+                if (!is_dir($upload_dir))   mkdir($upload_dir,  0777, true);
+                $total = count($_FILES['archivos']['name']);
+                for ($i = 0; $i < $total; $i++) {
+                    $tmp = $_FILES['archivos']['tmp_name'][$i];
+                    if ($tmp != '') {
+                        $safe     = preg_replace('/[^a-zA-Z0-9.]+/', '', basename($_FILES['archivos']['name'][$i]));
+                        $filename = 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe;
+                        $path     = $upload_dir    . $filename;   // para move_uploaded_file
+                        $db_path  = $upload_dir_db . $filename;   // para la BD
+                        if (move_uploaded_file($tmp, $path)) {
+                            $stmtFile = $conn->prepare('INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)');
+                            $stmtFile->execute([$new_ticket_id, $db_path]);
+                        }
+                    }
+                }
+            }
 
             $conn->commit();
             $success = "Ticket #$new_ticket_id creado exitosamente.";
@@ -88,7 +115,7 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
 
 <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data" id="adminTicketForm">
             <input type="hidden" name="user_id" id="user_id" value="">
             
             <h5 class="fw-bold text-primary mb-3">Información del Usuario</h5>
@@ -151,7 +178,31 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
                 <textarea name="description" class="form-control" rows="4" required placeholder="Detalle completo"></textarea>
             </div>
 
+            <div class="mb-4">
+                <label class="form-label fw-medium">Evidencias Adjuntas <span class="text-muted fw-normal">(Máximo 5 archivos)</span></label>
+                <div class="card bg-light border-0 mb-3" style="border: 2px dashed #c1c9d0 !important;">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary mb-2 d-block opacity-75"></i>
+                        <h6 class="fw-bold text-dark">Añade fotos o documentos</h6>
+                        <p class="small text-muted mb-3">Sube imágenes, reportes o captura en vivo el problema (Máx 5).</p>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('adminCameraInput').click()">
+                                <i class="bi bi-camera-fill me-1"></i> Tomar foto
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('adminFileInput').click()">
+                                <i class="bi bi-folder-plus me-1"></i> Explorar equipo
+                            </button>
+                        </div>
+                        <input type="file" id="adminCameraInput" accept="image/*" capture="environment" class="d-none" multiple>
+                        <input type="file" id="adminFileInput" class="d-none" multiple>
+                        <input type="file" name="archivos[]" id="adminRealInput" class="d-none" multiple>
+                    </div>
+                </div>
+                <ul class="list-group list-group-flush border rounded-3 overflow-hidden" id="adminFilePreviewList" style="display:none;"></ul>
+            </div>
+
             <div class="d-flex justify-content-end">
+                <a href="tickets.php" class="btn btn-light me-2">Cancelar</a>
                 <button type="submit" class="btn btn-primary fw-bold px-4"><i class="bi bi-save me-2"></i> Crear y Guardar Ticket</button>
             </div>
         </form>
@@ -201,6 +252,72 @@ function searchUser() {
             document.getElementById('userStatusText').innerHTML = '<span class="text-danger">Error de conexión al buscar.</span>';
         });
 }
+</script>
+
+<script>
+// Manejo de archivos adjuntos en el formulario del admin
+const adminCameraInput  = document.getElementById('adminCameraInput');
+const adminFileInput    = document.getElementById('adminFileInput');
+const adminRealInput    = document.getElementById('adminRealInput');
+const adminPreviewList  = document.getElementById('adminFilePreviewList');
+let adminFiles = [];
+const ADMIN_MAX = 5;
+
+function adminHandleFiles(files) {
+    for (let i = 0; i < files.length; i++) {
+        if (adminFiles.length >= ADMIN_MAX) {
+            alert('⚠️ Límite: máximo ' + ADMIN_MAX + ' archivos.');
+            break;
+        }
+        if (!adminFiles.some(f => f.name === files[i].name && f.size === files[i].size)) {
+            adminFiles.push(files[i]);
+        }
+    }
+    adminUpdateUI();
+}
+
+if (adminCameraInput) adminCameraInput.addEventListener('change', e => { adminHandleFiles(e.target.files); e.target.value=''; });
+if (adminFileInput)   adminFileInput.addEventListener('change',   e => { adminHandleFiles(e.target.files); e.target.value=''; });
+
+function adminUpdateUI() {
+    adminPreviewList.innerHTML = '';
+    const dt = new DataTransfer();
+    adminFiles.forEach((file, idx) => {
+        dt.items.add(file);
+        let icon = 'bi-file-earmark';
+        if (file.type.startsWith('image/')) icon = 'bi-image text-primary';
+        else if (file.type === 'application/pdf') icon = 'bi-file-earmark-pdf text-danger';
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center bg-white';
+        li.innerHTML = `
+            <div class="d-flex align-items-center text-truncate pe-3">
+                <i class="bi ${icon} fs-5 me-3 opacity-75"></i>
+                <div class="text-truncate">
+                    <span class="d-block fw-medium text-dark text-truncate" style="font-size:.95rem">${file.name}</span>
+                    <small class="text-muted">${(file.size/1024/1024).toFixed(2)} MB</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle"
+                style="width:32px;height:32px;padding:0" onclick="adminRemoveFile(${idx})">
+                <i class="bi bi-x-lg"></i>
+            </button>`;
+        adminPreviewList.appendChild(li);
+    });
+    adminRealInput.files = dt.files;
+    adminPreviewList.style.display = adminFiles.length > 0 ? 'block' : 'none';
+}
+
+function adminRemoveFile(idx) {
+    adminFiles.splice(idx, 1);
+    adminUpdateUI();
+}
+
+document.getElementById('adminTicketForm').addEventListener('submit', function(e) {
+    if (adminFiles.length > ADMIN_MAX) {
+        e.preventDefault();
+        alert('Por favor remueve archivos para cumplir el límite de ' + ADMIN_MAX + '.');
+    }
+});
 </script>
 
 <?php require 'includes/admin_footer.php'; ?>

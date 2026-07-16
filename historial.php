@@ -60,14 +60,14 @@ function renderPagination($current, $total, $paramName) {
     $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
-    <div class="card glass-card border-0 mb-4 opacity-75">
+    <div class="card card-plain border-0 mb-4 opacity-75">
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-2"></i> Mis Tickets Finalizados</h5>
         </div>
         <div class="card-body p-0 pb-3">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
                             <th>Título</th>
@@ -113,14 +113,14 @@ function renderPagination($current, $total, $paramName) {
     $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
-    <div class="card glass-card border-0 mb-4 opacity-75">
+    <div class="card card-plain border-0 mb-4 opacity-75">
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0 text-muted"><i class="bi bi-clock-history me-2"></i> Tickets Atendidos por Mí</h5>
         </div>
         <div class="card-body p-0 pb-3">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
+                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
                             <th>Usuario</th>

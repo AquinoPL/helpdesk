@@ -287,7 +287,7 @@ if ($user['role'] == 'admin') {
 
         <!-- ACCIONES (Admin o Técnico) -->
         <?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
-            <div class="card glass-card border-0 mb-4 fade-in" style="background-color: #f8f9fa;">
+            <div class="card card-plain border-0 mb-4 fade-in" style="background-color: #f8f9fa;">
                 <div class="card-body p-4">
                     <?php if ($current_status == 'Pendiente' && !$ticket['technician_id']): ?>
                         <!-- 1. Opciones Iniciales de Admin: Realizar Atención o Rechazar -->
@@ -402,7 +402,7 @@ if ($user['role'] == 'admin') {
 
         <?php if (($user['role'] == 'tecnico' || $is_impersonating) && $is_assigned && !in_array($tech_status, ['Atendido', 'Rechazado'])): ?>
             <!-- Acciones Rápidas del Técnico -->
-            <div class="card glass-card border-0 mb-4 border-top border-4 border-info fade-in">
+            <div class="card card-plain border-0 mb-4 border-top border-4 border-info fade-in">
                 <div class="card-body p-4 text-center">
                     <?php if($is_impersonating): ?>
                         <div class="alert alert-warning py-2 small mb-3">Estás emitiendo estas acciones en nombre de este técnico.</div>
@@ -510,7 +510,7 @@ if ($user['role'] == 'admin') {
         <div id="assigned-techs-wrapper">
         <?php if (count($asignaciones) > 0): ?>
             <!-- Técnicos Asignados Actualmente -->
-            <div class="card glass-card border-0 mb-4 fade-in">
+            <div class="card card-plain border-0 mb-4 fade-in">
                 <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
                     <h6 class="fw-bold mb-0 text-muted"><i class="bi bi-people me-2"></i> Técnicos Asignados</h6>
                 </div>
@@ -530,7 +530,7 @@ if ($user['role'] == 'admin') {
 
         <!-- REPORTE DEL TÉCNICO -->
         <?php if (!empty($ticket['tech_comment'])): ?>
-            <div class="card glass-card border-0 mb-4 fade-in border-start border-4 border-dark">
+            <div class="card card-plain border-0 mb-4 fade-in border-start border-4 border-dark">
                 <div class="card-body p-4 p-md-5 bg-white rounded-3 shadow-sm">
                     <h5 class="fw-bold mb-4 text-dark"><i class="bi bi-tools text-primary me-2"></i> Reporte y Diagnóstico Técnico</h5>
                     <div class="p-3 bg-light rounded border" style="white-space: pre-wrap; font-size:1.05rem; color: #333; line-height: 1.6;"><?php echo htmlspecialchars($ticket['tech_comment']); ?></div>
@@ -539,7 +539,7 @@ if ($user['role'] == 'admin') {
         <?php endif; ?>
 
         <!-- Registro Detallado (Historial Vertical Visual) -->
-        <div class="card glass-card border-0 fade-in position-relative mb-4">
+        <div class="card card-plain border-0 fade-in position-relative mb-4">
             <div class="card-body p-4">
                 <h6 class="fw-bold text-uppercase text-muted mb-4"><i class="bi bi-clock-history me-1"></i> Historial del Ticket</h6>
                 

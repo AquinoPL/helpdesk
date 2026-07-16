@@ -84,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
 <div class="register-container fade-in px-3">
-    <div class="card glass-card border-0 p-4 p-md-5">
+    <div class="card card-plain border-0 p-4 p-md-5">
         <div class="text-center mb-4">
             <h3 class="fw-bold text-dark">Registro de Usuario</h3>
             <p class="text-muted">Crea tu cuenta en Soporte Alianza</p>

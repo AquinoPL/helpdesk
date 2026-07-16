@@ -12,7 +12,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $category = $_POST['category'];
     $description = isset($_POST['description']) ? trim($_POST['description']) : '';
     $user_id = $_SESSION['user']['id'];
-    $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
+    // Si el usuario no cambió la oficina en el form, usar la de su perfil en sesión
+    $office_id = !empty($_POST['office_id'])
+        ? intval($_POST['office_id'])
+        : (isset($_SESSION['user']['office_id']) ? intval($_SESSION['user']['office_id']) : null);
 
     if (empty($title) || empty($category)) {
         $error = "Todos los campos obligatorios deben ser completados.";
@@ -26,10 +29,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Guardar archivos si los hay
             if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
-                $upload_dir = 'uploads/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
+                // Carpeta organizada por mes: uploads/YYYY-MM/
+                $month_folder = date('Y-m') . '/';
+                $upload_dir   = 'uploads/' . $month_folder;
+                if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
+                if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
 
                 $total = count($_FILES['archivos']['name']);
                 for ($i = 0; $i < $total; $i++) {
@@ -64,186 +68,165 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
 require 'includes/header.php';
 ?>
 
-<div class="row justify-content-center">
-    <div class="col-lg-8 col-md-10">
-        
-        <div class="d-flex align-items-center mb-4">
-            <a href="index.php" class="btn btn-outline-secondary rounded-circle me-3" style="width: 40px; height: 40px; padding: 0; line-height:38px; text-align:center;">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <div>
-                <h2 class="fw-bold mb-0">Crear Nuevo Ticket</h2>
-                <p class="text-muted mb-0">Completa la información para recibir asistencia.</p>
-            </div>
-        </div>
+<div class="hero-public mb-5">
+    <h2 class="fw-bold mb-2">Crear Nuevo Ticket</h2>
+    <p class="mb-0">Completa la información para recibir asistencia de nuestro equipo.</p>
+</div>
 
+<div class="container" style="margin-top:-4rem; padding-bottom:3rem;">
+    <div class="card card-plain p-4 p-md-5 mx-auto" style="max-width:780px;">
+        
         <?php if ($error): ?>
-            <div class="alert alert-danger alert-auto-dismiss alert-dismissible fade show" role="alert">
+            <div class="alert alert-danger alert-auto-dismiss alert-dismissible fade show mb-4" role="alert">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo $error; ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         <?php endif; ?>
 
-        <div class="card glass-card border-0 p-4">
-            <form method="POST" enctype="multipart/form-data">
-                
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label fw-medium text-dark">Ubicación / Oficina del Problema <span class="text-danger">*</span></label>
-                        <?php 
-                        $userOffice = $_SESSION['user']['office_id'] ?? '';
-                        $userOfficeName = '';
-                        foreach($offices as $of) {
-                            if ($of['id'] == $userOffice) {
-                                $userOfficeName = $of['name'];
-                                break;
-                            }
-                        }
-                        ?>
-                        <div class="input-group">
-                            <input type="hidden" name="office_id" id="ticket_office_id" value="<?php echo htmlspecialchars($userOffice); ?>" required>
-                            <input type="text" class="form-control form-control-lg bg-white fs-6" id="ticket_office_display" value="<?php echo htmlspecialchars($userOfficeName); ?>" placeholder="Haz clic para buscar oficina..." readonly onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')" style="cursor: pointer;">
-                            <button type="button" class="btn btn-outline-primary" onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')">
-                                <i class="bi bi-search"></i> Buscar
-                            </button>
-                        </div>
-                        <div class="form-text">Si este equipo es de otra sede, cámbialo aquí.</div>
-                    </div>
-                    <div class="col-md-6 mt-3 mt-md-0">
-                        <label class="form-label fw-medium text-dark">Categoría del problema <span class="text-danger">*</span></label>
-                        <select class="form-select form-select-lg fs-6" name="category" required>
-                            <option value="" selected disabled>Selecciona una categoría...</option>
-                            <option value="Software">Software (Aplicativos, ERP, Office, etc.)</option>
-                            <option value="Hardware">Hardware (Computadoras, periféricos, etc.)</option>
-                            <option value="Internet">Internet (Conectividad, VPN, Wifi)</option>
-                            <option value="Instalacion">Instalación (Nuevos equipos, programas)</option>
-                            <option value="Otro">Otro</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-medium text-dark">Título <span class="text-danger">*</span></label>
-                    <input type="text" name="title" class="form-control form-control-lg fs-6" placeholder="Ej: Mi computadora no enciende" required>
-                    <div class="form-text">Resume tu problema en una frase corta.</div>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label fw-medium text-dark">Descripción <span class="text-muted fw-normal">(Opcional)</span></label>
-                    <textarea name="description" class="form-control" rows="5" placeholder="Detalla lo más posible el problema que presentas..."></textarea>
-                </div>
-
-                <div class="mb-5">
-                    <label class="form-label fw-medium text-dark mb-3">Evidencias Adjuntas (Máximo 5 archivos)</label>
-                    <div class="card bg-light border-0 mb-3" style="border: 2px dashed #c1c9d0 !important;">
-                        <div class="card-body text-center p-4">
-                            <i class="bi bi-cloud-arrow-up-fill fs-1 text-primary mb-2 d-block opacity-75"></i>
-                            <h6 class="fw-bold text-dark">Añade fotos o documentos</h6>
-                            <p class="small text-muted mb-3">Sube imágenes, reportes o captura en vivo el problema (Máx 5).</p>
-                            
-                            <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('cameraInput').click()">
-                                    <i class="bi bi-camera-fill me-1"></i> Tomar foto
-                                </button>
-                                <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                                    <i class="bi bi-folder-plus me-1"></i> Explorar equipo
-                                </button>
-                            </div>
-
-                            <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
-                            <input type="file" id="fileInput" class="d-none" multiple>
-                            <!-- Input real que se envía al servidor con las selecciones combinadas -->
-                            <input type="file" name="archivos[]" id="realInput" class="d-none" multiple>
-                        </div>
-                    </div>
-                    
-                    <!-- Lista visual de archivos -->
-                    <ul class="list-group list-group-flush border rounded-3 overflow-hidden" id="filePreviewList" style="display: none;">
-                        <!-- JS inyecta los items aquí -->
-                    </ul>
-                </div>
-
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <a href="index.php" class="btn btn-light px-4 py-2 text-dark">Cancelar</a>
-                    <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
-                        <i class="bi bi-send-fill me-2"></i> Enviar Ticket
-                    </button>
-                </div>
-
-            </form>
+        <form method="POST" enctype="multipart/form-data">
             
-            <script>
-                const cameraInput = document.getElementById('cameraInput');
-                const fileInput = document.getElementById('fileInput');
-                const realInput = document.getElementById('realInput');
-                const filePreviewList = document.getElementById('filePreviewList');
-                
-                let selectedFiles = [];
-                const MAX_FILES = 5;
-
-                function handleFiles(files) {
-                    for (let i = 0; i < files.length; i++) {
-                        if (selectedFiles.length >= MAX_FILES) {
-                            alert('⚠️ Límite alcanzado: Solo puedes adjuntar un máximo de ' + MAX_FILES + ' evidencias.');
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Ubicación / Oficina del Problema <span class="text-danger">*</span></label>
+                    <?php 
+                    $userOffice = $_SESSION['user']['office_id'] ?? '';
+                    $userOfficeName = '';
+                    foreach($offices as $of) {
+                        if ($of['id'] == $userOffice) {
+                            $userOfficeName = $of['name'];
                             break;
                         }
-                        if(!selectedFiles.some(f => f.name === files[i].name && f.size === files[i].size)) {
-                            selectedFiles.push(files[i]);
-                        }
                     }
-                    updateUI();
-                }
+                    ?>
+                    <div class="input-group">
+                        <input type="hidden" name="office_id" id="ticket_office_id" value="<?php echo htmlspecialchars($userOffice); ?>" required>
+                        <input type="text" class="form-control bg-white" id="ticket_office_display" value="<?php echo htmlspecialchars($userOfficeName); ?>" placeholder="Haz clic para buscar..." readonly onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')" style="cursor: pointer;">
+                        <button type="button" class="btn btn-outline-secondary" onclick="openOfficeSearch('ticket_office_id', 'ticket_office_display')">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Categoría <span class="text-danger">*</span></label>
+                    <select class="form-select" name="category" required>
+                        <option value="" selected disabled>Selecciona una categoría...</option>
+                        <option value="Software">Software</option>
+                        <option value="Hardware">Hardware</option>
+                        <option value="Internet">Internet</option>
+                        <option value="Instalacion">Instalación</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-medium">Asunto <span class="text-danger">*</span></label>
+                    <input type="text" name="title" class="form-control" placeholder="Ej: Mi computadora no enciende" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-medium">Descripción <span class="text-muted fw-normal">(Opcional)</span></label>
+                    <textarea name="description" class="form-control" rows="5" placeholder="Detalla lo más posible el problema..."></textarea>
+                </div>
+            </div>
 
-                cameraInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
-                fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
-
-                function updateUI() {
-                    filePreviewList.innerHTML = '';
-                    const dt = new DataTransfer();
-
-                    selectedFiles.forEach((file, index) => {
-                        dt.items.add(file);
+            <div class="mb-4">
+                <label class="form-label small fw-medium mb-2">Evidencias Adjuntas (Máx 5)</label>
+                <div class="card bg-light border-0 mb-3" style="border: 2px dashed var(--line) !important;">
+                    <div class="card-body text-center p-3">
+                        <i class="bi bi-cloud-arrow-up-fill fs-2" style="color:var(--accent)"></i>
+                        <h6 class="fw-bold mt-2">Añade fotos o documentos</h6>
                         
-                        // Infer icon from file type
-                        let icon = 'bi-file-earmark';
-                        if (file.type.startsWith('image/')) icon = 'bi-image text-primary';
-                        else if (file.type === 'application/pdf') icon = 'bi-file-earmark-pdf text-danger';
-
-                        const li = document.createElement('li');
-                        li.className = 'list-group-item d-flex justify-content-between align-items-center bg-white';
-                        li.innerHTML = `
-                            <div class="d-flex align-items-center text-truncate pe-3">
-                                <i class="bi ${icon} fs-5 me-3 opacity-75"></i>
-                                <div class="text-truncate">
-                                    <span class="d-block fw-medium text-dark text-truncate" style="font-size: 0.95rem;">${file.name}</span>
-                                    <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" style="width:32px; height:32px; padding:0;" onclick="removeFile(${index})" title="Quitar archivo">
-                                <i class="bi bi-x-lg"></i>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('cameraInput').click()">
+                                <i class="bi bi-camera me-1"></i> Foto
                             </button>
-                        `;
-                        filePreviewList.appendChild(li);
-                    });
+                            <button type="button" class="btn btn-sm text-white" style="background:var(--accent)" onclick="document.getElementById('fileInput').click()">
+                                <i class="bi bi-folder me-1"></i> Explorar
+                            </button>
+                        </div>
 
-                    realInput.files = dt.files;
-                    filePreviewList.style.display = selectedFiles.length > 0 ? 'block' : 'none';
-                }
+                        <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
+                        <input type="file" id="fileInput" class="d-none" multiple>
+                        <input type="file" name="archivos[]" id="realInput" class="d-none" multiple>
+                    </div>
+                </div>
+                
+                <ul class="list-group list-group-flush border rounded-3 overflow-hidden" id="filePreviewList" style="display: none;"></ul>
+            </div>
 
-                function removeFile(index) {
-                    selectedFiles.splice(index, 1);
-                    updateUI();
-                }
+            <div class="d-flex gap-2 justify-content-end">
+                <a href="index.php" class="btn btn-outline-secondary w-100 w-md-auto">Cancelar</a>
+                <button type="submit" class="btn text-white w-100 w-md-auto" style="background:var(--deep)">Enviar reporte</button>
+            </div>
+        </form>
+        
+        <script>
+            const cameraInput = document.getElementById('cameraInput');
+            const fileInput = document.getElementById('fileInput');
+            const realInput = document.getElementById('realInput');
+            const filePreviewList = document.getElementById('filePreviewList');
+            
+            let selectedFiles = [];
+            const MAX_FILES = 5;
 
-                document.querySelector('form').addEventListener('submit', function(e) {
-                    if(selectedFiles.length > MAX_FILES) {
-                        e.preventDefault();
-                        alert('Por favor remueve archivos para cumplir el límite de ' + MAX_FILES + '.');
+            function handleFiles(files) {
+                for (let i = 0; i < files.length; i++) {
+                    if (selectedFiles.length >= MAX_FILES) {
+                        alert('⚠️ Límite alcanzado: Solo puedes adjuntar un máximo de ' + MAX_FILES + ' evidencias.');
+                        break;
                     }
-                });
-            </script>
-        </div>
+                    if(!selectedFiles.some(f => f.name === files[i].name && f.size === files[i].size)) {
+                        selectedFiles.push(files[i]);
+                    }
+                }
+                updateUI();
+            }
 
+            cameraInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
+            fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
+
+            function updateUI() {
+                filePreviewList.innerHTML = '';
+                const dt = new DataTransfer();
+
+                selectedFiles.forEach((file, index) => {
+                    dt.items.add(file);
+                    
+                    let icon = 'bi-file-earmark';
+                    if (file.type.startsWith('image/')) icon = 'bi-image text-primary';
+                    else if (file.type === 'application/pdf') icon = 'bi-file-earmark-pdf text-danger';
+
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center bg-white py-2';
+                    li.innerHTML = `
+                        <div class="d-flex align-items-center text-truncate pe-3">
+                            <i class="bi ${icon} me-3 opacity-75"></i>
+                            <div class="text-truncate">
+                                <span class="d-block small fw-medium text-dark text-truncate">${file.name}</span>
+                                <small class="text-muted" style="font-size:.7rem">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removeFile(${index})" title="Quitar archivo">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    `;
+                    filePreviewList.appendChild(li);
+                });
+
+                realInput.files = dt.files;
+                filePreviewList.style.display = selectedFiles.length > 0 ? 'block' : 'none';
+            }
+
+            function removeFile(index) {
+                selectedFiles.splice(index, 1);
+                updateUI();
+            }
+
+            document.querySelector('form').addEventListener('submit', function(e) {
+                if(selectedFiles.length > MAX_FILES) {
+                    e.preventDefault();
+                    alert('Por favor remueve archivos para cumplir el límite de ' + MAX_FILES + '.');
+                }
+            });
+        </script>
     </div>
 </div>
 
