@@ -47,6 +47,18 @@ try {
         $stmtFiles = $conn->prepare("SELECT * FROM ticket_files WHERE ticket_id = ?");
         $stmtFiles->execute([$id]);
         $files = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
+
+        // Técnico asignado (si existe)
+        $tecnico_asignado = null;
+        if (!empty($ticket['technician_id'])) {
+            $stmtTec = $conn->prepare("
+                SELECT first_name, last_name, phone
+                FROM trabajadores
+                WHERE id = ?
+            ");
+            $stmtTec->execute([$ticket['technician_id']]);
+            $tecnico_asignado = $stmtTec->fetch(PDO::FETCH_ASSOC);
+        }
     }
 } catch (PDOException $e) {
     $error = "Error al consultar los datos del ticket.";
@@ -91,6 +103,42 @@ endif;
                 </div>
             </div>
         </div>
+
+        <?php if (!empty($tecnico_asignado)): ?>
+        <div class="card border-0 shadow-sm mb-4" style="border-left: 5px solid #2b8f9e !important; background: linear-gradient(135deg, #f0f9fb 0%, #fff 100%);">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:52px; height:52px; background: linear-gradient(135deg, #12324a, #2b8f9e); color:#fff; font-size:1.3rem; font-weight:700;">
+                            <?php echo strtoupper(substr($tecnico_asignado['first_name'], 0, 1)); ?>
+                        </div>
+                        <div>
+                            <div class="text-muted small text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">
+                                <i class="bi bi-person-badge me-1"></i>Técnico asignado a tu ticket
+                            </div>
+                            <div class="fw-bold text-dark fs-5 mb-0">
+                                <?php echo htmlspecialchars($tecnico_asignado['first_name'] . ' ' . $tecnico_asignado['last_name']); ?>
+                            </div>
+                            <?php if (!empty($tecnico_asignado['phone'])): ?>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($tecnico_asignado['phone']); ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if (!empty($tecnico_asignado['phone'])): ?>
+                    <a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $tecnico_asignado['phone']); ?>"
+                       class="btn btn-success fw-semibold px-4 py-2 d-flex align-items-center gap-2"
+                       style="border-radius: 2rem; font-size:.9rem;">
+                        <i class="bi bi-telephone-fill fs-5"></i>
+                        <span>Llamar ahora</span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-4 bg-light">

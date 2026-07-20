@@ -55,7 +55,7 @@ function renderPagination($current, $total, $paramName) {
     $total = $stmtF->fetchColumn();
     $pages = ceil($total / $limit);
 
-    $stmt = $conn->prepare("SELECT t.*, t.status as current_status FROM tickets t WHERE t.user_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset");
+    $stmt = $conn->prepare("SELECT t.*, t.status as current_status, u.first_name, u.last_name, o.name as office_name FROM tickets t JOIN usuarios u ON t.user_id = u.id LEFT JOIN oficina o ON t.office_id = o.id WHERE t.user_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset");
     $stmt->execute(['id' => $user['id']]);
     $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
@@ -70,10 +70,12 @@ function renderPagination($current, $total, $paramName) {
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
-                            <th>Título</th>
+                            <th>Usuario / Remitente</th>
+                            <th>Oficina</th>
+                            <th>Asunto</th>
                             <th>Categoría</th>
                             <th>Estado</th>
-                            <th>Fecha Creación</th>
+                            <th>Fecha</th>
                             <th class="text-end pe-4">Acción</th>
                         </tr>
                     </thead>
@@ -83,16 +85,18 @@ function renderPagination($current, $total, $paramName) {
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
                             <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
-                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                <td><?php echo htmlspecialchars($t['category']); ?></td>
+                                <td class="ps-4"><span class="text-muted fw-bold">#<?php echo htmlspecialchars($t['id']); ?></span></td>
+                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
+                                <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($t['office_name'] ?? 'Sin oficina'); ?></span></td>
+                                <td class="fw-semibold text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
+                                <td><span class="badge bg-secondary opacity-75"><?php echo htmlspecialchars($t['category']); ?></span></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                                 <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($t['created_at'])); ?></td>
                                 <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center py-4 text-muted">No tienes tickets finalizados aún.</td></tr>
+                            <tr><td colspan="8" class="text-center py-4 text-muted">No tienes tickets finalizados aún.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -108,7 +112,7 @@ function renderPagination($current, $total, $paramName) {
     $total = $stmtF->fetchColumn();
     $pages = ceil($total / $limit);
 
-    $stmt = $conn->prepare("SELECT t.*, t.status as current_status, u.first_name, u.last_name FROM tickets t JOIN usuarios u ON t.user_id = u.id WHERE t.technician_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset");
+    $stmt = $conn->prepare("SELECT t.*, t.status as current_status, u.first_name, u.last_name, o.name as office_name FROM tickets t JOIN usuarios u ON t.user_id = u.id LEFT JOIN oficina o ON t.office_id = o.id WHERE t.technician_id = :id AND status IN ('Atendido', 'Rechazado') ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset");
     $stmt->execute(['id' => $user['id']]);
     $tickets_fi = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
@@ -123,10 +127,12 @@ function renderPagination($current, $total, $paramName) {
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
                             <th class="ps-4">Ticket</th>
-                            <th>Usuario</th>
-                            <th>Título</th>
+                            <th>Usuario / Remitente</th>
+                            <th>Oficina</th>
+                            <th>Asunto</th>
                             <th>Categoría</th>
                             <th>Estado</th>
+                            <th>Fecha</th>
                             <th class="text-end pe-4">Acción</th>
                         </tr>
                     </thead>
@@ -136,16 +142,18 @@ function renderPagination($current, $total, $paramName) {
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
                             <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold"><?php echo htmlspecialchars($t['id']); ?></span></td>
+                                <td class="ps-4"><span class="text-muted fw-bold">#<?php echo htmlspecialchars($t['id']); ?></span></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
+                                <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($t['office_name'] ?? 'Sin oficina'); ?></span></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                <td><?php echo htmlspecialchars($t['category']); ?></td>
+                                <td><span class="badge bg-secondary opacity-75"><?php echo htmlspecialchars($t['category']); ?></span></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
+                                <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($t['created_at'])); ?></td>
                                 <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Revisar</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center py-4 text-muted">No tienes tickets finalizados.</td></tr>
+                            <tr><td colspan="8" class="text-center py-4 text-muted">No tienes tickets finalizados.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>

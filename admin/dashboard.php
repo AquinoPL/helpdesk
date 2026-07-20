@@ -142,7 +142,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                 <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th>Folio</th>
+                            <th>ID de ticket</th>
                             <th>Solicitante</th>
                             <th>Asunto</th>
                             <th>Categoría</th>
@@ -208,7 +208,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                 <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th>Folio</th>
+                            <th>ID de ticket</th>
                             <th>Solicitante</th>
                             <th>Asunto</th>
                             <th>Categoría</th>
@@ -248,7 +248,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                 <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th>Folio</th>
+                            <th>ID de ticket</th>
                             <th>Solicitante</th>
                             <th>Asunto</th>
                             <th>Categoría</th>

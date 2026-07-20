@@ -21,6 +21,15 @@ if (isset($_GET['success'])) {
 // Lógica de acciones por POST
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     try {
+        if ($_POST['action'] == 'tomar_tecnico' && $user['role'] == 'tecnico') {
+            $conn->beginTransaction();
+            $conn->prepare("UPDATE tickets SET technician_id = ?, status = 'En camino' WHERE id = ? AND (technician_id IS NULL OR technician_id = 0)")->execute([$user['id'], $ticket_id]);
+            $conn->prepare("INSERT INTO ticket_history (ticket_id, changed_by, status, comment) VALUES (?, ?, 'En camino', 'Ticket auto-asignado por el técnico')")->execute([$ticket_id, $user['id']]);
+            $conn->commit();
+            header("Location: ticket_detalle.php?id=$ticket_id&success=assigned");
+            exit();
+        }
+
         if ($_POST['action'] == 'asignar' && $user['role'] == 'admin') {
             $tech_id = (int)$_POST['technician_id'];
             // CALL al procedure asignar_tecnico
@@ -32,10 +41,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
 
         if ($_POST['action'] == 'reasignar' && $user['role'] == 'admin') {
             $tech_id = (int)$_POST['technician_id'];
-            // CALL al procedure reasignar_tecnico (borra historial anterior y reasigna)
-            $stmt = $conn->prepare("CALL reasignar_tecnico(?, ?, ?)");
-            $stmt->execute([$ticket_id, $tech_id, $user['id']]);
+            // SQL directo: reasignar técnico, limpiar historial de estados previos y poner 'En camino'
+            $conn->beginTransaction();
+            $conn->prepare("UPDATE tickets SET technician_id = ?, status = 'En camino' WHERE id = ?")->execute([$tech_id, $ticket_id]);
+            $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ? AND status NOT IN ('Pendiente','Rechazado')")->execute([$ticket_id]);
+            $conn->prepare("INSERT INTO ticket_history (ticket_id, changed_by, status, comment) VALUES (?, ?, 'En camino', 'Técnico reasignado por el administrador')")->execute([$ticket_id, $user['id']]);
+            $conn->commit();
             header("Location: ticket_detalle.php?id=$ticket_id&success=assigned");
+            exit();
+        }
+
+        if ($_POST['action'] == 'eliminar_ticket' && $user['role'] == 'admin') {
+            // Eliminar archivos, historial y el ticket
+            $conn->beginTransaction();
+            $conn->prepare("DELETE FROM ticket_files   WHERE ticket_id = ?")->execute([$ticket_id]);
+            $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ?")->execute([$ticket_id]);
+            $conn->prepare("DELETE FROM tickets        WHERE id = ?")->execute([$ticket_id]);
+            $conn->commit();
+            header("Location: index.php?deleted=1");
             exit();
         }
 
@@ -44,9 +67,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             if(empty($comment)) {
                 $error = "Debe proporcionar un motivo para rechazar el ticket.";
             } else {
-                // CALL al procedure rechazar_ticket
-                $stmt = $conn->prepare("CALL rechazar_ticket(?, ?, ?)");
-                $stmt->execute([$ticket_id, $user['id'], $comment]);
+                // SQL directo: actualizar estado + registrar en historial
+                $conn->beginTransaction();
+                $stmtRej = $conn->prepare("UPDATE tickets SET status = 'Rechazado', technician_id = NULL WHERE id = ?");
+                $stmtRej->execute([$ticket_id]);
+                $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, changed_by, status, comment) VALUES (?, ?, 'Rechazado', ?)");
+                $stmtHist->execute([$ticket_id, $user['id'], $comment]);
+                $conn->commit();
                 header("Location: ticket_detalle.php?id=$ticket_id&success=updated");
                 exit();
             }
@@ -152,9 +179,9 @@ if ($user['role'] == 'tecnico' || $is_impersonating) {
     }
 }
 
-// Obtener asignación actual global
+// Obtener asignación actual global (incluye teléfono del técnico)
 $stmtAsign = $conn->prepare("
-    SELECT t.status, '' as comment, u.first_name, u.last_name 
+    SELECT t.status, '' as comment, u.first_name, u.last_name, u.phone as tech_phone
     FROM tickets t 
     JOIN trabajadores u ON t.technician_id = u.id 
     WHERE t.id = ?
@@ -185,10 +212,40 @@ if ($user['role'] == 'admin') {
             <a href="admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
                 <i class="bi bi-pencil me-1"></i> Editar
             </a>
+            <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill"
+                    onclick="const p=document.getElementById('delete-confirm-panel'); p.style.display=(p.style.display==='none'?'block':'none'); p.scrollIntoView({behavior:'smooth',block:'center'});">
+                <i class="bi bi-trash me-1"></i> Eliminar
+            </button>
         <?php endif; ?>
         <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> fs-5 py-2 px-3 shadow-sm"><?php echo htmlspecialchars($current_status); ?></span>
     </div>
 </div>
+
+<?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
+<!-- Panel de confirmación de eliminación (oculto por defecto) -->
+<div id="delete-confirm-panel" class="alert alert-danger border-0 shadow-sm mb-3 fade-in" style="display:none;">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+            <strong>¿Eliminar el ticket #<?php echo $ticket_id; ?> permanentemente?</strong>
+            <div class="small mt-1 text-danger-emphasis">Esta acción no se puede deshacer. Se eliminarán el ticket, su historial y archivos adjuntos.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    onclick="document.getElementById('delete-confirm-panel').style.display='none'">
+                Cancelar
+            </button>
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="action" value="eliminar_ticket">
+                <button type="submit" class="btn btn-danger btn-sm fw-bold">
+                    <i class="bi bi-trash-fill me-1"></i> Sí, eliminar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 
 <?php if ($success): ?>
     <div class="alert alert-success alert-auto-dismiss alert-dismissible fade show" role="alert">
@@ -205,7 +262,44 @@ if ($user['role'] == 'admin') {
 
 <div class="row justify-content-center mb-5">
     <div class="col-lg-10 col-xl-9">
-        
+
+        <?php if (!empty($asignaciones) && $user['role'] === 'usuario'): ?>
+        <?php $tec = $asignaciones[0]; ?>
+        <div class="card border-0 shadow-sm mb-4" style="border-left: 5px solid var(--accent, #2b8f9e) !important; background: linear-gradient(135deg, #f0f9fb 0%, #fff 100%);">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:52px; height:52px; background: linear-gradient(135deg, #12324a, #2b8f9e); color:#fff; font-size:1.3rem; font-weight:700;">
+                            <?php echo strtoupper(substr($tec['first_name'], 0, 1)); ?>
+                        </div>
+                        <div>
+                            <div class="text-muted small text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">
+                                <i class="bi bi-person-badge me-1"></i>Técnico asignado a tu ticket
+                            </div>
+                            <div class="fw-bold text-dark fs-5 mb-0">
+                                <?php echo htmlspecialchars($tec['first_name'] . ' ' . $tec['last_name']); ?>
+                            </div>
+                            <?php if (!empty($tec['tech_phone'])): ?>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($tec['tech_phone']); ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if (!empty($tec['tech_phone'])): ?>
+                    <a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $tec['tech_phone']); ?>"
+                       class="btn btn-success fw-semibold px-4 py-2 d-flex align-items-center gap-2"
+                       style="border-radius: 2rem; font-size:.9rem;">
+                        <i class="bi bi-telephone-fill fs-5"></i>
+                        <span>Llamar ahora</span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-4 bg-light">
                 <div class="row">
@@ -396,6 +490,22 @@ if ($user['role'] == 'admin') {
                         <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-info-circle me-2"></i> Estado Finalizado</h5>
                         <p class="mb-0 text-muted">Este ticket ya se encuentra <strong><?php echo $current_status; ?></strong>, no se pueden realizar más ajustes de asignación.</p>
                     <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($user['role'] == 'tecnico' && !$is_assigned && (!$ticket['technician_id'] || $ticket['technician_id'] == 0) && !in_array($current_status, ['Atendido', 'Rechazado'])): ?>
+            <!-- Opción para que el Técnico tome el Ticket sin asignar -->
+            <div class="card card-plain border-0 mb-4 border-top border-4 border-warning fade-in">
+                <div class="card-body p-4 text-center">
+                    <h5 class="fw-bold text-dark mb-2"><i class="bi bi-inbox-fill text-warning me-2"></i> Ticket Pendiente Sin Asignar</h5>
+                    <p class="text-muted small mb-3">Este ticket aún no tiene un técnico asignado. Puedes auto-asignártelo para comenzar su atención sin esperar a la asignación del administrador.</p>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="tomar_tecnico">
+                        <button type="submit" class="btn text-white px-4 py-2 fw-bold shadow-sm" style="background:var(--accent)" onclick="return confirm('¿Deseas auto-asignarte y comenzar a atender este ticket?')">
+                            <i class="bi bi-hand-index-thumb me-2"></i> Tomar este Ticket
+                        </button>
+                    </form>
                 </div>
             </div>
         <?php endif; ?>

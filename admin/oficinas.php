@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $name = trim($_POST['name']);
         $location = trim($_POST['location']);
         $location_detail = trim($_POST['location_detail']);
-        $is_active = isset($_POST['is_active']) ? 'true' : 'false';
+        $is_active = isset($_POST['is_active']) ? 1 : 0;
         
         try {
             $stmt = $conn->prepare("UPDATE oficina SET name=?, location=?, location_detail=?, is_active=? WHERE id=?");
@@ -92,7 +92,7 @@ require 'includes/admin_header.php';
                         <th class="ps-4">ID</th>
                         <th>Nombre</th>
                         <th>Ubicación</th>
-                        <th>Detalle</th>
+                        <th>Mapa</th>
                         <th>Estado</th>
                         <th class="text-end pe-4">Acciones</th>
                     </tr>
@@ -104,7 +104,13 @@ require 'includes/admin_header.php';
                             <td class="ps-4 text-muted">#<?php echo $o['id']; ?></td>
                             <td class="fw-bold text-dark"><?php echo htmlspecialchars($o['name']); ?></td>
                             <td><?php echo htmlspecialchars($o['location'] ?? ''); ?></td>
-                            <td class="text-muted small text-truncate" style="max-width: 200px;"><?php echo htmlspecialchars($o['location_detail'] ?? ''); ?></td>
+                            <td class="text-center">
+                                <?php if(!empty($o['location_detail'])): ?>
+                                    <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                <?php else: ?>
+                                    <span class="text-muted small fst-italic">N/A</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($o['is_active']): ?>
                                     <span class="badge bg-success bg-opacity-25 text-success">Activa</span>
@@ -151,7 +157,7 @@ require 'includes/admin_header.php';
                         <th class="ps-4">ID</th>
                         <th>Nombre</th>
                         <th>Ubicación</th>
-                        <th>Detalle</th>
+                        <th>Mapa</th>
                         <th>Estado</th>
                         <th class="text-end pe-4">Acciones</th>
                     </tr>
@@ -163,7 +169,13 @@ require 'includes/admin_header.php';
                             <td class="ps-4 text-muted opacity-75">#<?php echo $o['id']; ?></td>
                             <td class="fw-bold text-secondary"><?php echo htmlspecialchars($o['name']); ?></td>
                             <td class="text-muted"><?php echo htmlspecialchars($o['location'] ?? ''); ?></td>
-                            <td class="text-muted small text-truncate" style="max-width: 200px;"><?php echo htmlspecialchars($o['location_detail'] ?? ''); ?></td>
+                            <td class="text-center">
+                                <?php if(!empty($o['location_detail'])): ?>
+                                    <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                <?php else: ?>
+                                    <span class="text-muted small fst-italic">N/A</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <span class="badge bg-secondary bg-opacity-25 text-secondary">Inactiva</span>
                             </td>
@@ -203,8 +215,13 @@ require 'includes/admin_header.php';
                   <input type="text" class="form-control" name="location">
               </div>
               <div class="mb-3">
-                  <label class="form-label fw-bold">Detalles Adicionales (Opcional)</label>
-                  <textarea class="form-control" name="location_detail" rows="2"></textarea>
+                  <label class="form-label fw-bold">Enlace a Google Maps (Opcional)</label>
+                  <div class="input-group">
+                      <input type="url" class="form-control" name="location_detail" placeholder="https://maps.app.goo.gl/...">
+                      <button type="button" class="btn btn-outline-danger" onclick="window.open('https://maps.google.com', 'MapsSearch', 'width=800,height=600,left=200,top=100');" title="Abrir Maps en ventana pequeña">
+                          <i class="bi bi-geo-alt"></i> Buscar
+                      </button>
+                  </div>
               </div>
           </div>
           <div class="modal-footer">
@@ -237,8 +254,13 @@ require 'includes/admin_header.php';
                   <input type="text" class="form-control" name="location" id="edit_location">
               </div>
               <div class="mb-3">
-                  <label class="form-label fw-bold">Detalles Adicionales (Opcional)</label>
-                  <textarea class="form-control" name="location_detail" id="edit_location_detail" rows="2"></textarea>
+                  <label class="form-label fw-bold">Enlace a Google Maps (Opcional)</label>
+                  <div class="input-group">
+                      <input type="url" class="form-control" name="location_detail" id="edit_location_detail" placeholder="https://maps.app.goo.gl/...">
+                      <button type="button" class="btn btn-outline-danger" onclick="window.open('https://maps.google.com', 'MapsSearch', 'width=800,height=600,left=200,top=100');" title="Abrir Maps en ventana pequeña">
+                          <i class="bi bi-geo-alt"></i> Buscar
+                      </button>
+                  </div>
               </div>
               <div class="form-check form-switch mb-3">
                   <input class="form-check-input" type="checkbox" name="is_active" id="edit_is_active">

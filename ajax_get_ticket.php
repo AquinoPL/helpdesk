@@ -138,11 +138,30 @@ elseif ($current_status == 'En proceso') $badgeClass = 'bg-info text-dark';
 elseif ($current_status == 'Atendido') $badgeClass = 'bg-success';
 elseif ($current_status == 'Rechazado') $badgeClass = 'bg-danger';
 
+// Construir array de mensajes para el JS
+$messages = [];
+foreach ($history as $h) {
+    $actor = !empty($h['first_name']) ? $h['first_name'] . ' ' . $h['last_name'] : 'Sistema';
+    $messages[] = [
+        'actor'   => $actor,
+        'role'    => $h['role'] ?? '',
+        'status'  => $h['status'] ?? '',
+        'comment' => $h['comment'] ?? '',
+    ];
+}
+
 $response = [
-    "status" => $current_status,
-    "badge_class" => $badgeClass,
-    "html" => $html_history,
-    "tech_comment" => $ticket['tech_comment'] ?: ''
+    // Campos del ticket (para el JS del tab Consultar)
+    'id'          => $ticket['id'],
+    'title'       => $ticket['title'],
+    'category'    => $ticket['category'],
+    'created_at'  => date('d M Y, H:i', strtotime($ticket['created_at'])),
+    'status'      => $current_status,
+    'messages'    => $messages,
+    // Campos de compatibilidad con usos anteriores
+    'badge_class' => $badgeClass,
+    'html'        => $html_history,
+    'tech_comment'=> $ticket['tech_comment'] ?? '',
 ];
 
 header('Content-Type: application/json');

@@ -18,9 +18,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $description = trim($_POST['description']);
     $user_id = !empty($_POST['user_id']) ? $_POST['user_id'] : null;
 
-    if (empty($dni) || empty($first_name) || empty($last_name) || empty($category) || empty($title) || empty($description)) {
-        $error = "Por favor, completa todos los campos obligatorios.";
+    if (empty($dni) || empty($office_id) || empty($category) || empty($title)) {
+        $error = "Por favor, completa los campos obligatorios (DNI, Oficina, Categoría y Título).";
     } else {
+        if (empty($first_name)) $first_name = 'Usuario';
+        if (empty($last_name)) $last_name = 'No Registrado';
+        if (empty($description)) $description = 'Sin descripción detallada.';
         try {
             $conn->beginTransaction();
 
@@ -129,12 +132,12 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
                     <div id="userStatusText" class="form-text mt-2 text-muted">Ingrese DNI y presione buscar.</div>
                 </div>
                 <div class="col-md-3 mt-3 mt-md-0">
-                    <label class="form-label fw-medium">Nombres <span class="text-danger">*</span></label>
-                    <input type="text" name="first_name" id="first_name" class="form-control" required>
+                    <label class="form-label fw-medium">Nombres</label>
+                    <input type="text" name="first_name" id="first_name" class="form-control" placeholder="(Opcional)">
                 </div>
                 <div class="col-md-3 mt-3 mt-md-0">
-                    <label class="form-label fw-medium">Apellidos <span class="text-danger">*</span></label>
-                    <input type="text" name="last_name" id="last_name" class="form-control" required>
+                    <label class="form-label fw-medium">Apellidos</label>
+                    <input type="text" name="last_name" id="last_name" class="form-control" placeholder="(Opcional)">
                 </div>
                 <div class="col-md-3 mt-3 mt-md-0">
                     <label class="form-label fw-medium">Teléfono</label>
@@ -174,8 +177,8 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-medium">Descripción <span class="text-danger">*</span></label>
-                <textarea name="description" class="form-control" rows="4" required placeholder="Detalle completo"></textarea>
+                <label class="form-label fw-medium">Descripción</label>
+                <textarea name="description" class="form-control" rows="4" placeholder="Detalle completo (Opcional)"></textarea>
             </div>
 
             <div class="mb-4">

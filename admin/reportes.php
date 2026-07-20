@@ -427,7 +427,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 <table class="table table-hover align-middle mb-0" style="font-size: .85rem;">
                     <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
                         <tr>
-                            <th>Folio</th>
+                            <th>ID de ticket</th>
                             <th>Usuario</th>
                             <th>Técnico Asignado</th>
                             <th>Asunto</th>
