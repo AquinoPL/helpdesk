@@ -459,46 +459,14 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <form method="POST" enctype="multipart/form-data" id="publicTicketForm">
 
                         <div class="row g-3 mb-3">
+                            <!-- DNI y Oficina primero -->
                             <div class="col-md-6">
-                                <label class="form-label small fw-medium">Nombre</label>
-                                <input type="text" name="first_name" class="form-control" placeholder="Tu nombre"
-                                    value="<?php echo $post['first_name']; ?>">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-medium">Correo / DNI <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-medium">DNI <span class="text-danger">*</span></label>
                                 <input type="text" name="dni" id="f_dni" class="form-control" required
-                                    placeholder="Tu DNI o correo"
+                                    placeholder="Tu DNI"
                                     value="<?php echo $post['dni']; ?>">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small fw-medium">Tel&eacute;fono <span class="text-danger">*</span></label>
-                                <input type="text" name="phone" id="f_phone" class="form-control" required
-                                    placeholder="Nro para contactarte"
-                                    value="<?php echo $post['phone']; ?>">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-medium">Apellidos</label>
-                                <input type="text" name="last_name" class="form-control" placeholder="Tus apellidos"
-                                    value="<?php echo $post['last_name']; ?>">
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label small fw-medium">Asunto <span class="text-danger">*</span></label>
-                                <input type="text" name="title" id="f_title" class="form-control" required
-                                    placeholder="Describe el problema en pocas palabras"
-                                    value="<?php echo $post['title']; ?>">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-medium">Categor&iacute;a <span class="text-danger">*</span></label>
-                                <select class="form-select" name="category" id="f_category" required>
-                                    <option value="" <?php echo $post['category']==='' ? 'selected disabled' : ''; ?>>Selecciona...</option>
-                                    <option value="Software"    <?php echo $post['category']==='Software'    ? 'selected':''; ?>>Software</option>
-                                    <option value="Hardware"    <?php echo $post['category']==='Hardware'    ? 'selected':''; ?>>Hardware</option>
-                                    <option value="Internet"    <?php echo $post['category']==='Internet'    ? 'selected':''; ?>>Internet</option>
-                                    <option value="Instalacion" <?php echo $post['category']==='Instalacion' ? 'selected':''; ?>>Instalaci&oacute;n</option>
-                                    <option value="Otro"        <?php echo $post['category']==='Otro'        ? 'selected':''; ?>>Otro</option>
-                                </select>
-                            </div>
-                            <div class="col-md-8">
                                 <label class="form-label small fw-medium">Oficina <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="hidden" name="office_id"   id="public_office_id"   value="<?php echo $post['office_id']; ?>">
@@ -515,6 +483,45 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                 </div>
                                 <div id="office_error" class="text-danger small mt-1" style="display:none;">Por favor selecciona una oficina.</div>
                             </div>
+
+                            <!-- Nombres, Apellidos y Teléfono -->
+                            <div class="col-md-4">
+                                <label class="form-label small fw-medium">Nombres</label>
+                                <input type="text" name="first_name" class="form-control" placeholder="Tus nombres"
+                                    value="<?php echo $post['first_name']; ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-medium">Apellidos</label>
+                                <input type="text" name="last_name" class="form-control" placeholder="Tus apellidos"
+                                    value="<?php echo $post['last_name']; ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-medium">Tel&eacute;fono <span class="text-danger">*</span></label>
+                                <input type="text" name="phone" id="f_phone" class="form-control" required
+                                    placeholder="Nro para contactarte"
+                                    value="<?php echo $post['phone']; ?>">
+                            </div>
+
+                            <!-- Categoría y Asunto -->
+                            <div class="col-md-4">
+                                <label class="form-label small fw-medium">Categor&iacute;a <span class="text-danger">*</span></label>
+                                <select class="form-select" name="category" id="f_category" required>
+                                    <option value="" <?php echo $post['category']==='' ? 'selected disabled' : ''; ?>>Selecciona...</option>
+                                    <option value="Software"    <?php echo $post['category']==='Software'    ? 'selected':''; ?>>Software</option>
+                                    <option value="Hardware"    <?php echo $post['category']==='Hardware'    ? 'selected':''; ?>>Hardware</option>
+                                    <option value="Internet"    <?php echo $post['category']==='Internet'    ? 'selected':''; ?>>Internet</option>
+                                    <option value="Instalacion" <?php echo $post['category']==='Instalacion' ? 'selected':''; ?>>Instalaci&oacute;n</option>
+                                    <option value="Otro"        <?php echo $post['category']==='Otro'        ? 'selected':''; ?>>Otro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small fw-medium">Asunto <span class="text-danger">*</span></label>
+                                <input type="text" name="title" id="f_title" class="form-control" required
+                                    placeholder="Describe el problema en pocas palabras"
+                                    value="<?php echo $post['title']; ?>">
+                            </div>
+
+                            <!-- Descripción -->
                             <div class="col-12">
                                 <label class="form-label small fw-medium">Descripci&oacute;n</label>
                                 <textarea name="description" class="form-control" rows="4"
