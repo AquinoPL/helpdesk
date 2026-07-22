@@ -72,8 +72,7 @@ if ($tech_id) {
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
+<div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center"><div>
         <h4 class="fw-bold mb-0">Vista de Técnico</h4>
         <div class="text-muted small">Supervisa las bandejas o asume el rol interactivo de tus técnicos.</div>
     </div>
@@ -145,13 +144,13 @@ if ($tech_id) {
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
                             <?php foreach ($tickets_ac as $t): ?>
-                                <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                <tr class="ticket-row" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
                                     <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($t['category']); ?></span></td>
                                     <td><span class="badge badge-status badge-<?php echo str_replace(' ', '-', $t['current_status']); ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                    <td class="text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-primary">Impersonar</a></td>
+                                    <td class="text-end"><a href="../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-primary">Impersonar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -185,13 +184,13 @@ if ($tech_id) {
                     <tbody>
                         <?php if (count($tickets_fi) > 0): ?>
                             <?php foreach ($tickets_fi as $t): ?>
-                                <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
+                                <tr class="ticket-row" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>'">
                                     <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                     <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                     <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
                                     <td><span class="badge bg-light text-secondary border"><?php echo htmlspecialchars($t['category']); ?></span></td>
                                     <td><span class="badge badge-status badge-<?php echo str_replace(' ', '-', $t['current_status']); ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                    <td class="text-end"><a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-secondary">Revisar</a></td>
+                                    <td class="text-end"><a href="../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>&impersonate_tech=<?php echo $tech_id; ?>" class="btn btn-sm btn-outline-secondary">Revisar</a></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>

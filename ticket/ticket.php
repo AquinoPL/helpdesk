@@ -1,6 +1,6 @@
 <?php
-require 'includes/auth.php';
-require 'config/database.php';
+require '../includes/auth.php';
+require '../config/database.php';
 
 restrict_access(['usuario']);
 
@@ -115,7 +115,7 @@ if (isset($_GET['tab'])) {
     $active_tab = in_array($_GET['tab'], ['crear','consultar','historial']) ? $_GET['tab'] : 'crear';
 }
 
-require 'includes/header.php';
+require '../includes/header.php';
 
 function renderPagH($current, $total, $extra = '') {
     if ($total <= 1) return "";
@@ -272,7 +272,7 @@ function renderPagH($current, $total, $extra = '') {
                     </div>
 
                     <div class="d-flex gap-2 justify-content-end">
-                        <a href="index.php" class="btn btn-outline-secondary">Cancelar</a>
+                        <a href="../index.php" class="btn btn-outline-secondary">Cancelar</a>
                         <button type="submit" class="btn text-white px-4" style="background:var(--deep)">
                             <i class="bi bi-send me-1"></i> Enviar reporte
                         </button>
@@ -574,4 +574,4 @@ document.getElementById('officeSearchInput').addEventListener('input', function(
 })();
 </script>
 
-<?php require 'includes/footer.php'; ?>
+<?php require '../includes/footer.php'; ?>

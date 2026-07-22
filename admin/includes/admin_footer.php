@@ -28,6 +28,44 @@
         }, 5000);
     });
 
+    // Auto-refresh data every 5 seconds sin recargar la página entera (igual que en public)
+    setInterval(function() {
+        fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 1. Update table bodies
+            const tbody = document.querySelector('tbody');
+            const newTbody = doc.querySelector('tbody');
+            if(tbody && newTbody) {
+                tbody.innerHTML = newTbody.innerHTML;
+            }
+
+            // 2. Update stat cards
+            const statsCols = document.querySelectorAll('.stat-card-value');
+            const newStatsCols = doc.querySelectorAll('.stat-card-value');
+            if (statsCols.length > 0 && statsCols.length === newStatsCols.length) {
+                statsCols.forEach((col, index) => {
+                    col.innerHTML = newStatsCols[index].innerHTML;
+                });
+            }
+
+            // 3. Update ticket details specific containers (por si acaso se usa el mismo footer)
+            const idsToUpdate = ['ticket-status-badge', 'assigned-techs-wrapper', 'history-container'];
+            idsToUpdate.forEach(id => {
+                const el = document.getElementById(id);
+                const newEl = doc.getElementById(id);
+                if(el && newEl) {
+                    el.innerHTML = newEl.innerHTML;
+                    el.className = newEl.className; 
+                }
+            });
+        })
+        .catch(error => console.error('Error polling updates:', error));
+    }, 5000);
+
     function confirmAction(e, form, actionName) {
         e.preventDefault();
         Swal.fire({

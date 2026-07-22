@@ -1,6 +1,6 @@
 <?php
-require 'includes/auth.php';
-require 'config/database.php';
+require '../includes/auth.php';
+require '../config/database.php';
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("Location: index.php");
@@ -58,7 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ?")->execute([$ticket_id]);
             $conn->prepare("DELETE FROM tickets        WHERE id = ?")->execute([$ticket_id]);
             $conn->commit();
-            header("Location: index.php?deleted=1");
+            header("Location: ../admin/tickets.php?deleted=1");
             exit();
         }
 
@@ -190,13 +190,13 @@ $stmtAsign->execute([$ticket_id]);
 $asignaciones = $stmtAsign->fetchAll(PDO::FETCH_ASSOC);
 
 if ($user['role'] == 'admin') {
-    require 'admin/includes/admin_header.php';
+    require '../admin/includes/admin_header.php';
 } else {
-    require 'includes/header.php';
+    require '../includes/header.php';
 }
 ?>
 
-<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 mt-2">
+<div class="card p-3 mt-4 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between mt-4 w-100">
     <div class="d-flex align-items-center mb-3 mb-md-0">
         <button type="button" onclick="history.back()" class="btn btn-outline-secondary rounded-circle me-3 flex-shrink-0" style="width: 40px; height: 40px; padding: 0; line-height:38px; text-align:center;" title="Volver atrás">
             <i class="bi bi-arrow-left"></i>
@@ -209,7 +209,7 @@ if ($user['role'] == 'admin') {
     
     <div class="text-md-end d-flex align-items-center justify-content-md-end gap-3 mt-3 mt-md-0">
         <?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
-            <a href="admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
+            <a href="../admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
                 <i class="bi bi-pencil me-1"></i> Editar
             </a>
             <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill"
@@ -907,7 +907,7 @@ if ($user['role'] == 'admin') {
 if ($user['role'] == 'admin') {
     require 'admin/includes/admin_footer.php';
 } else {
-    require 'includes/footer.php'; 
+    require '../includes/footer.php'; 
 }
 ?>
 

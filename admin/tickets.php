@@ -91,8 +91,7 @@ function getQueryStringParams($newPage) {
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
+<div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center"><div>
         <h2 class="fw-bold mb-1">Control Global de Tickets</h2>
         <p class="text-muted mb-0">Explora, busca y audita la totalidad de los tickets del sistema.</p>
     </div>
@@ -165,7 +164,7 @@ function getQueryStringParams($newPage) {
                         <?php foreach ($tickets as $t): 
                             $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                         ?>
-                        <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                        <tr class="ticket-row shadow-sm bg-white rounded" style="cursor: pointer; margin-bottom: 10px;" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                             <td class="ps-4 py-3"><span class="fw-bold fs-6 text-muted"><?php echo htmlspecialchars($t['id']); ?></span></td>
                             <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['user_fname'] . ' ' . $t['user_lname']); ?></td>
                             <td class="<?php echo $t['technician_id'] ? 'text-primary fw-medium' : 'text-muted fst-italic'; ?>">
@@ -178,10 +177,16 @@ function getQueryStringParams($newPage) {
                             <td><span class="badge status-badge <?php echo $badgeClass; ?> shadow-sm"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                             <td class="small"><i class="bi bi-clock me-1"></i> <?php echo date('d/m/Y H:i', strtotime($t['created_at'])); ?></td>
                             <td class="text-end pe-4 py-3 position-relative" style="z-index: 2;">
-                                <a href="editar_ticket.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3 me-1" title="Editar detalles">
+                                <a href="editar_ticket.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-2 me-1" title="Editar detalles" onclick="event.stopPropagation();">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="../ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-dark rounded-pill px-3">Entrar</a>
+                                <form action="../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>" method="POST" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('¿Eliminar permanentemente el ticket #<?php echo $t['id']; ?>?');">
+                                    <input type="hidden" name="action" value="eliminar_ticket">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 me-1" title="Eliminar ticket" onclick="event.stopPropagation();">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                <a href="../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-dark rounded-pill px-3" onclick="event.stopPropagation();">Entrar</a>
                             </td>
                         </tr>
                         <?php endforeach; ?>

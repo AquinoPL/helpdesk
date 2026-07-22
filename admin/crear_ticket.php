@@ -67,9 +67,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
                 // Carpeta organizada por mes: uploads/YYYY-MM/
                 $month_folder  = date('Y-m') . '/';
-                $upload_dir    = '../uploads/' . $month_folder;   // ruta fisica desde /admin/
+                $upload_dir    = '../ticket/uploads/' . $month_folder;   // ruta fisica desde /admin/
                 $upload_dir_db = 'uploads/'    . $month_folder;   // ruta que se guarda en BD
-                if (!is_dir('../uploads/')) mkdir('../uploads/', 0777, true);
+                if (!is_dir('../ticket/uploads/')) mkdir('../ticket/uploads/', 0777, true);
                 if (!is_dir($upload_dir))   mkdir($upload_dir,  0777, true);
                 $total = count($_FILES['archivos']['name']);
                 for ($i = 0; $i < $total; $i++) {
@@ -102,8 +102,7 @@ $stmtOffices = $conn->query("SELECT id, name FROM oficina WHERE is_active = TRUE
 $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
+<div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center"><div>
         <h2 class="fw-bold mb-0">Crear Nuevo Ticket</h2>
         <p class="text-muted mb-0">Formulario administrativo para levantar tickets a nombre de usuarios.</p>
     </div>

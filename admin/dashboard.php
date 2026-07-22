@@ -48,7 +48,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
 // Note: rechazado not shown in cards
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="card p-3 mt-4 mb-4 d-flex flex-row justify-content-between align-items-center">
     <div>
         <h4 class="fw-bold mb-0">Visión General</h4>
         <div class="text-muted small">Métricas y tickets recientes del sistema.</div>
@@ -153,7 +153,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                     <tbody>
                         <?php if (count($tickets_fl) > 0): ?>
                             <?php foreach ($tickets_fl as $t): ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <tr class="ticket-row" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
@@ -219,7 +219,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                     <tbody>
                         <?php if (count($tickets_ac) > 0): ?>
                             <?php foreach ($tickets_ac as $t): ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <tr class="ticket-row" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
@@ -259,7 +259,7 @@ $atendidos  = $stats['Atendido'] ?? 0;
                     <tbody>
                         <?php if (count($tickets_fi) > 0): ?>
                             <?php foreach ($tickets_fi as $t): ?>
-                            <tr class="ticket-row" onclick="window.location='../ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <tr class="ticket-row" onclick="window.location='../ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="fw-bold text-dark">#<?php echo htmlspecialchars($t['id']); ?></td>
                                 <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>

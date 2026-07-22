@@ -55,7 +55,7 @@ $offices_inactive = $stmt_inactive->fetchAll(PDO::FETCH_ASSOC);
 
 require 'includes/admin_header.php';
 ?>
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="card p-3 mt-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
     <div class="d-flex flex-column flex-md-row align-items-md-center gap-3 w-100">
         <h2 class="fw-bold mb-0">Gestión de Oficinas</h2>
         <div class="input-group shadow-sm" style="max-width: 300px;">

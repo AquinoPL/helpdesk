@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
-require 'config/database.php';
+require '../config/database.php';
 
 if (!defined('BASE_URL')) {
     if (strpos($_SERVER['SCRIPT_NAME'], '/Soporte-Alianza') !== false) {
@@ -64,7 +64,7 @@ try {
     $error = "Error al consultar los datos del ticket.";
 }
 
-require 'includes/header.php';
+require '../includes/header.php';
 
 if (!isset($error)):
     $current_status = $ticket['status'] ?: 'Pendiente';
@@ -85,11 +85,11 @@ endif;
                 <i class="bi bi-x-circle fs-3 d-block mb-2"></i>
                 <?php echo htmlspecialchars($error); ?>
                 <br>
-                <a href="index.php" class="btn btn-outline-danger mt-3">Volver al inicio</a>
+                <a href="../index.php" class="btn btn-outline-danger mt-3">Volver al inicio</a>
             </div>
         <?php else: ?>
         
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
+        <div class="card p-3 mt-4 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between w-100 mt-4">
             <div class="d-flex align-items-center mb-3 mb-md-0">
                 <button type="button" onclick="history.back()" class="btn btn-outline-secondary rounded-circle me-3 flex-shrink-0" style="width: 40px; height: 40px; padding: 0; line-height:38px; text-align:center;" title="Volver atrás">
                     <i class="bi bi-arrow-left"></i>
@@ -414,4 +414,4 @@ endif;
     setInterval(pollTicketData, 10000);
 </script>
 
-<?php require 'includes/footer.php'; ?>
+<?php require '../includes/footer.php'; ?>

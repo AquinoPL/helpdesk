@@ -18,28 +18,25 @@ if ($is_logged_in && $user["role"] == "admin") {
     exit();
 }
 
-// Lógica para que el técnico se auto-asigne un ticket pendiente
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['take_ticket_id']) && $is_logged_in && $user['role'] == 'tecnico') {
-    $take_id = (int)$_POST['take_ticket_id'];
-    try {
-        $conn->beginTransaction();
-        $stmtTake = $conn->prepare("UPDATE tickets SET technician_id = ?, status = 'En camino' WHERE id = ? AND (technician_id IS NULL OR technician_id = 0)");
-        $stmtTake->execute([$user['id'], $take_id]);
-        if ($stmtTake->rowCount() > 0) {
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, changed_by, status, comment) VALUES (?, ?, 'En camino', 'Ticket auto-asignado por el técnico')");
-            $stmtHist->execute([$take_id, $user['id']]);
-            $_SESSION['success_msg'] = "Te has auto-asignado el ticket #$take_id exitosamente.";
-        }
-        $conn->commit();
-        header("Location: index.php?success=taken");
-        exit();
-    } catch (PDOException $e) {
-        $conn->rollBack();
-        $error = "Error al auto-asignar el ticket: " . $e->getMessage();
-    }
+if ($is_logged_in && $user["role"] == "tecnico") {
+    header("Location: " . BASE_URL . "/technical/dashboard.php");
+    exit();
 }
 
 $error = '';
+$login_error = '';
+$register_error = '';
+$fieldErrors = [];
+$register_val = [
+    'doc_type'   => 'DNI',
+    'dni'        => '',
+    'phone'      => '',
+    'first_name' => '',
+    'last_name'  => '',
+    'email'      => '',
+    'office_id'  => '',
+];
+
 // Guardar valores del POST para repoblar el form si hay error
 $post = [
     'dni'        => '',
@@ -52,88 +49,201 @@ $post = [
     'title'      => '',
     'description'=> '',
 ];
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
-    $dni        = trim($_POST['dni']);
-    $phone      = trim($_POST['phone']);
-    $office_id  = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
-    $category   = $_POST['category'];
-    $title      = trim($_POST['title']);
-    $description = isset($_POST['description']) ? trim($_POST['description']) : '';
-    $first_name  = !empty($_POST['first_name']) ? trim($_POST['first_name']) : 'No Especificado';
-    $last_name   = !empty($_POST['last_name'])  ? trim($_POST['last_name'])  : 'No Especificado';
+    $action = $_POST['action'] ?? 'create_ticket';
 
-    // Guardar para repoblar
-    $post['dni']         = htmlspecialchars($_POST['dni'] ?? '');
-    $post['phone']       = htmlspecialchars($_POST['phone'] ?? '');
-    $post['first_name']  = htmlspecialchars($_POST['first_name'] ?? '');
-    $post['last_name']   = htmlspecialchars($_POST['last_name'] ?? '');
-    $post['office_id']   = htmlspecialchars($_POST['office_id'] ?? '');
-    $post['office_name'] = htmlspecialchars($_POST['office_name'] ?? '');
-    $post['category']    = htmlspecialchars($_POST['category'] ?? '');
-    $post['title']       = htmlspecialchars($_POST['title'] ?? '');
-    $post['description'] = htmlspecialchars($_POST['description'] ?? '');
+    if ($action === 'login') {
+        $dni = trim($_POST["dni"] ?? '');
+        $password = trim($_POST["password"] ?? '');
 
-
-    if (empty($dni) || empty($phone) || empty($office_id) || empty($category) || empty($title)) {
-        $error = "Por favor, completa todos los campos obligatorios.";
-    } else {
         try {
-            $conn->beginTransaction();
-            $stmtCheck = $conn->prepare("SELECT id FROM usuarios WHERE dni = :dni");
-            $stmtCheck->execute(['dni' => $dni]);
-            $user_id = $stmtCheck->fetchColumn();
+            $stmt = $conn->prepare("CALL login_user(?, ?)");
+            $stmt->execute([$dni, $password]);
+            $login_user = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->closeCursor();
+            
+            // DEBUG LOGGING
+            error_log("LOGIN ATTEMPT: DNI=" . print_r($dni, true) . ", PASS=" . print_r($password, true) . ", RESULT=" . print_r($login_user, true));
 
-            if (!$user_id) {
-                $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
-                $user_id = $conn->lastInsertId();
+            if ($login_user && isset($login_user['id']) && !empty($login_user['id'])) {
+                $login_user['dni'] = $dni;
+                if (!isset($login_user['office_id'])) {
+                    $table = ($login_user['role'] === 'usuario') ? 'usuarios' : 'trabajadores';
+                    $stmtOfc = $conn->prepare("SELECT office_id FROM $table WHERE id = ?");
+                    $stmtOfc->execute([$login_user['id']]);
+                    $login_user['office_id'] = $stmtOfc->fetchColumn();
+                }
+                $_SESSION["user"] = $login_user;
+                if ($login_user["role"] == "admin") {
+                    header("Location: admin/dashboard.php");
+                } else {
+                    header("Location: index.php");
+                }
+                exit();
             } else {
-                $stmtUpdate = $conn->prepare("UPDATE usuarios SET phone = ?, office_id = ? WHERE id = ?");
-                $stmtUpdate->execute([$phone, $office_id, $user_id]);
+                $login_error = "Credenciales incorrectas o usuario no encontrado.";
             }
+        } catch(PDOException $e) {
+            $login_error = "Error al intentar iniciar sesión: " . $e->getMessage();
+        }
 
-            $stmt = $conn->prepare("INSERT INTO tickets (user_id, category, title, description, office_id) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$user_id, $category, $title, $description, $office_id]);
+    } elseif ($action === 'register') {
+        $doc_type         = isset($_POST['doc_type']) && $_POST['doc_type'] === 'CE' ? 'CE' : 'DNI';
+        $dni              = trim($_POST["dni"] ?? '');
+        $first_name       = trim($_POST["first_name"] ?? '');
+        $last_name        = trim($_POST["last_name"] ?? '');
+        $email            = trim($_POST["email"] ?? '');
+        $phone            = trim($_POST["phone"] ?? '');
+        $office_id        = $_POST["office_id"] ?? '';
+        $password         = $_POST["password"] ?? '';
+        $password_confirm = $_POST["password_confirm"] ?? '';
 
-            // El trigger genera el ID; lo recuperamos con la misma logica: MAX(id) del mes actual
-            $prefix = (int) date('Ym');
-            $new_ticket_id = $conn->query("SELECT MAX(id) FROM tickets WHERE id DIV 1000 = $prefix")->fetchColumn();
+        $register_val = compact('doc_type', 'dni', 'phone', 'first_name', 'last_name', 'email', 'office_id');
 
-            $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado desde el portal público')");
-            $stmtHist->execute([$new_ticket_id]);
+        if ($doc_type === 'CE') {
+            if (empty($dni))                               $fieldErrors['dni'] = "El número de Carnet de Extranjería es obligatorio.";
+            elseif (!preg_match('/^[0-9]{9}$/', $dni))     $fieldErrors['dni'] = "El Carnet de Extranjería debe tener exactamente 9 dígitos.";
+        } else {
+            if (empty($dni))                               $fieldErrors['dni'] = "El DNI es obligatorio.";
+            elseif (!preg_match('/^[0-9]{8}$/', $dni))     $fieldErrors['dni'] = "El DNI debe tener exactamente 8 dígitos.";
+        }
 
-            // Guardar archivos si los hay
-            if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
-                // Carpeta organizada por mes: uploads/YYYY-MM/
-                $month_folder = date('Y-m') . '/';
-                $upload_dir   = 'uploads/' . $month_folder;
-                if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
-                if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
+        if (empty($phone))            $fieldErrors['phone']            = "El teléfono es obligatorio.";
+        elseif (!preg_match('/^[0-9]{9}$/', $phone)) $fieldErrors['phone'] = "Debe contener exactamente 9 dígitos.";
 
-                $total = count($_FILES['archivos']['name']);
-                for ($i = 0; $i < $total; $i++) {
-                    $tmp_name = $_FILES['archivos']['tmp_name'][$i];
-                    if ($tmp_name != "") {
-                        $name = $_FILES['archivos']['name'][$i];
-                        $safe_name = preg_replace("/[^a-zA-Z0-9.]+/", "", basename($name));
-                        $file_path = $upload_dir . 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+        if (empty($first_name))       $fieldErrors['first_name']       = "Los nombres son obligatorios.";
+        if (empty($last_name))        $fieldErrors['last_name']        = "Los apellidos son obligatorios.";
+        if (empty($office_id))        $fieldErrors['office_id']        = "Selecciona una oficina.";
+        if (empty($password))         $fieldErrors['password']         = "La contraseña es obligatoria.";
+        elseif ($password !== $password_confirm)
+                                      $fieldErrors['password_confirm'] = "Las contraseñas no coinciden.";
 
-                        if (move_uploaded_file($tmp_name, $file_path)) {
-                            $stmtFile = $conn->prepare("INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)");
-                            $stmtFile->execute([$new_ticket_id, $file_path]);
+        if (empty($fieldErrors)) {
+            try {
+                $stmt = $conn->prepare("INSERT INTO usuarios (doc_type, dni, first_name, last_name, email, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $doc_type, $dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id ?: null, $password
+                ]);
+
+                $newId = $conn->lastInsertId();
+                $_SESSION["user"] = [
+                    'id'         => $newId,
+                    'dni'        => $dni,
+                    'first_name' => $first_name,
+                    'last_name'  => $last_name,
+                    'email'      => $email,
+                    'phone'      => $phone,
+                    'office_id'  => $office_id ?: null,
+                    'role'       => 'usuario',
+                ];
+                header("Location: index.php");
+                exit();
+            } catch(PDOException $e) {
+                if ($e->getCode() == '23000' || $e->getCode() == 23000) {
+                    $label = $register_val['doc_type'] === 'CE' ? 'Carnet de Extranjería' : 'DNI';
+                    $fieldErrors['dni'] = "Este $label ya se encuentra registrado.";
+                    $register_error = "El $label ingresado ya está registrado. Si olvidaste tu contraseña, comunícate con el administrador.";
+                } else {
+                    $register_error = "Hubo un error al registrar el usuario: " . $e->getMessage();
+                }
+            }
+        } else {
+            $register_error = "Por favor, corrige los campos marcados en rojo.";
+        }
+
+    } elseif ($action === 'create_ticket') {
+        $dni        = trim($_POST['dni']);
+        $phone      = trim($_POST['phone']);
+        $office_id  = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
+        $category   = $_POST['category'];
+        $title      = trim($_POST['title']);
+        $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+        $first_name  = !empty($_POST['first_name']) ? trim($_POST['first_name']) : 'No Especificado';
+        $last_name   = !empty($_POST['last_name'])  ? trim($_POST['last_name'])  : 'No Especificado';
+
+        $post['dni']         = htmlspecialchars($_POST['dni'] ?? '');
+        $post['phone']       = htmlspecialchars($_POST['phone'] ?? '');
+        $post['first_name']  = htmlspecialchars($_POST['first_name'] ?? '');
+        $post['last_name']   = htmlspecialchars($_POST['last_name'] ?? '');
+        $post['office_id']   = htmlspecialchars($_POST['office_id'] ?? '');
+        $post['office_name'] = htmlspecialchars($_POST['office_name'] ?? '');
+        $post['category']    = htmlspecialchars($_POST['category'] ?? '');
+        $post['title']       = htmlspecialchars($_POST['title'] ?? '');
+        $post['description'] = htmlspecialchars($_POST['description'] ?? '');
+
+        if (empty($dni) || empty($phone) || empty($office_id) || empty($category) || empty($title)) {
+            $error = "Por favor, completa todos los campos obligatorios.";
+        } else {
+            try {
+                $conn->beginTransaction();
+                $stmtCheck = $conn->prepare("SELECT id FROM usuarios WHERE dni = :dni");
+                $stmtCheck->execute(['dni' => $dni]);
+                $user_id = $stmtCheck->fetchColumn();
+
+                if (!$user_id) {
+                    $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
+                    $user_id = $conn->lastInsertId();
+                } else {
+                    $stmtUpdate = $conn->prepare("UPDATE usuarios SET phone = ?, office_id = ? WHERE id = ?");
+                    $stmtUpdate->execute([$phone, $office_id, $user_id]);
+                }
+
+                $stmt = $conn->prepare("INSERT INTO tickets (user_id, category, title, description, office_id) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$user_id, $category, $title, $description, $office_id]);
+
+                $prefix = (int) date('Ym');
+                $new_ticket_id = $conn->query("SELECT MAX(id) FROM tickets WHERE id DIV 1000 = $prefix")->fetchColumn();
+
+                $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, status, comment) VALUES (?, 'Pendiente', 'Ticket creado desde el portal público')");
+                $stmtHist->execute([$new_ticket_id]);
+
+                if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
+                    $month_folder = date('Y-m') . '/';
+                    $upload_dir   = 'uploads/' . $month_folder;
+                    if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
+                    if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
+
+                    $total = count($_FILES['archivos']['name']);
+                    for ($i = 0; $i < $total; $i++) {
+                        $tmp_name = $_FILES['archivos']['tmp_name'][$i];
+                        if ($tmp_name != "") {
+                            $name = $_FILES['archivos']['name'][$i];
+                            $safe_name = preg_replace("/[^a-zA-Z0-9.]+/", "", basename($name));
+                            $file_path = $upload_dir . 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+
+                            if (move_uploaded_file($tmp_name, $file_path)) {
+                                $stmtFile = $conn->prepare("INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)");
+                                $stmtFile->execute([$new_ticket_id, $file_path]);
+                            }
                         }
                     }
                 }
-            }
 
-            $conn->commit();
-            header("Location: ticket_status.php?id=" . $new_ticket_id . "&dni=" . urlencode($dni));
-            exit();
-        } catch (PDOException $e) {
-            $conn->rollBack();
-            $error = "Error al crear el ticket: " . $e->getMessage();
+                $conn->commit();
+                header("Location: ticket/ticket_status.php?id=" . $new_ticket_id . "&dni=" . urlencode($dni));
+                exit();
+            } catch (PDOException $e) {
+                $conn->rollBack();
+                $error = "Error al crear el ticket: " . $e->getMessage();
+            }
         }
     }
+}
+
+// Helpers
+function hasErr(string $field, array $fieldErrors): bool {
+    return isset($fieldErrors[$field]);
+}
+function fieldClass(string $field, array $fieldErrors): string {
+    return hasErr($field, $fieldErrors) ? 'is-invalid' : '';
+}
+function fieldMsg(string $field, array $fieldErrors): string {
+    if (hasErr($field, $fieldErrors)) {
+        return '<div class="invalid-feedback d-block text-start"><i class="bi bi-exclamation-circle me-1"></i>' . htmlspecialchars($fieldErrors[$field]) . '</div>';
+    }
+    return '';
 }
 
 // Obtener oficinas para la busqueda
@@ -202,19 +312,25 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
 ?>
 
 <?php if ($is_logged_in): ?>
-    <div class="row mb-4 align-items-center">
-        <div class="col">
+    <div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center">
+        <div>
             <h2 class="fw-bold mb-1">Hola, <?php echo htmlspecialchars($user['first_name']); ?>!</h2>
             <p class="text-muted mb-0">Bienvenido al sistema de soporte.</p>
         </div>
         <?php if ($user["role"] == "usuario"): ?>
-        <div class="col-auto">
-            <a href="ticket.php" class="btn btn-primary d-flex align-items-center shadow-sm">
+        <div>
+            <a href="ticket/ticket.php" class="btn btn-primary d-flex align-items-center shadow-sm">
                 <i class="bi bi-plus-lg me-2"></i> Crear Ticket
             </a>
         </div>
         <?php endif; ?>
     </div>
+
+    <style>
+    .stat-card-clickable { text-decoration: none; display: block; color: inherit; }
+    .stat-card-clickable .kpi-card { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; border-radius: 12px; }
+    .stat-card-clickable:hover .kpi-card { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    </style>
 <?php else: ?>
     <div class="hero-public">
         <h1 class="fw-bold mb-2">Soporte T&eacute;cnico Alianza</h1>
@@ -235,13 +351,74 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
     $total_ac = $stmtC->fetchColumn();
     $pages_ac = ceil($total_ac / $limit);
 
+    // TCKTS HISTORIAL
+    $stmtH = $conn->prepare("SELECT COUNT(*) FROM tickets WHERE user_id = :id AND status IN ('Atendido', 'Rechazado')");
+    $stmtH->execute(['id' => $user['id']]);
+    $total_hist = $stmtH->fetchColumn();
+
     $stmt = $conn->prepare("SELECT t.*, COALESCE(t.status, 'Pendiente') as current_status, u.first_name, u.last_name, o.name as office_name FROM tickets t JOIN usuarios u ON t.user_id = u.id LEFT JOIN oficina o ON t.office_id = o.id WHERE t.user_id = :id AND (t.status NOT IN ('Atendido', 'Rechazado') OR t.status IS NULL) ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_ac");
     $stmt->execute(['id' => $user['id']]);
     $tickets_ac = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="card kpi-card p-4 border-0 shadow-sm h-100 glass-card">
+                <div class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 0.85rem;">Mis Tickets Activos</div>
+                <div class="d-flex align-items-end justify-content-between">
+                    <h2 class="mb-0 fw-bolder text-warning"><?php echo $total_ac; ?></h2>
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        <i class="bi bi-inbox-fill fs-4 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-xl-3">
+            <a href="ticket/ticket.php" class="stat-card-clickable">
+                <div class="card kpi-card p-4 border-0 shadow-sm h-100 glass-card">
+                    <div class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 0.85rem;">Nuevo Ticket</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h2 class="mb-0 fw-bolder text-primary"><i class="bi bi-plus"></i></h2>
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-pencil-square fs-4 text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <a href="ticket/historial.php" class="stat-card-clickable">
+                <div class="card kpi-card p-4 border-0 shadow-sm h-100 glass-card">
+                    <div class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 0.85rem;">Mi Historial</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h2 class="mb-0 fw-bolder text-info"><?php echo $total_hist; ?></h2>
+                        <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-clock-history fs-4 text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <a href="perfil.php" class="stat-card-clickable">
+                <div class="card kpi-card p-4 border-0 shadow-sm h-100 glass-card">
+                    <div class="text-muted fw-bold mb-2 text-uppercase" style="font-size: 0.85rem;">Editar Perfil</div>
+                    <div class="d-flex align-items-end justify-content-between">
+                        <h2 class="mb-0 fw-bolder text-secondary"><i class="bi bi-gear"></i></h2>
+                        <div class="bg-secondary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-person-circle fs-4 text-secondary"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
     <!-- TABLA ACTIVOS: USUARIO -->
-    <div class="card card-plain border-0 mb-4">
+    <div class="card card-plain border-0 mb-4 glass-card">
         <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
             <h5 class="fw-bold mb-0"><i class="bi bi-ticket-detailed text-primary me-2"></i> Mis Tickets Activos</h5>
         </div>
@@ -265,7 +442,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             <?php foreach ($tickets_ac as $t): 
                                 $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
                             ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
+                            <tr class="ticket-row" onclick="window.location='ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>'">
                                 <td class="ps-4"><span class="text-muted fw-bold">#<?php echo htmlspecialchars($t['id']); ?></span></td>
                                 <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
                                 <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($t['office_name'] ?? 'Sin oficina'); ?></span></td>
@@ -273,146 +450,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                 <td><span class="badge bg-secondary opacity-75"><?php echo htmlspecialchars($t['category']); ?></span></td>
                                 <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
                                 <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Detalles</a></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="8" class="text-center py-4 text-muted">No tienes tickets activos.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php echo renderPagination($page_active, $pages_ac, 'pa', 'pf', $page_finished); ?>
-        </div>
-    </div>
-
-
-
-<?php elseif ($is_logged_in && $user["role"] == "tecnico"): ?>
-    <?php
-    if (!empty($_SESSION['success_msg'])): ?>
-        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i> <?php echo htmlspecialchars($_SESSION['success_msg']); unset($_SESSION['success_msg']); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif;
-
-    // TICKETS PENDIENTES SIN ASIGNAR
-    $stmtPend = $conn->query("
-        SELECT t.*, COALESCE(t.status, 'Pendiente') as current_status,
-               u.first_name, u.last_name, o.name as office_name
-        FROM tickets t
-        JOIN usuarios u ON t.user_id = u.id
-        LEFT JOIN oficina o ON t.office_id = o.id
-        WHERE (t.technician_id IS NULL OR t.technician_id = 0)
-          AND (t.status = 'Pendiente' OR t.status IS NULL)
-        ORDER BY t.created_at ASC
-    ");
-    $tickets_pend = $stmtPend->fetchAll(PDO::FETCH_ASSOC);
-
-    // TCKTS ACTIVOS TECNICO
-    $stmtC = $conn->prepare("SELECT COUNT(*) FROM tickets WHERE technician_id = :id AND (status NOT IN ('Atendido', 'Rechazado') OR status IS NULL)");
-    $stmtC->execute(['id' => $user['id']]);
-    $total_ac = $stmtC->fetchColumn();
-    $pages_ac = ceil($total_ac / $limit);
-
-    $stmt = $conn->prepare("SELECT t.*, COALESCE(t.status, 'Pendiente') as current_status, u.first_name, u.last_name, o.name as office_name FROM tickets t JOIN usuarios u ON t.user_id = u.id LEFT JOIN oficina o ON t.office_id = o.id WHERE t.technician_id = :id AND (t.status NOT IN ('Atendido', 'Rechazado') OR t.status IS NULL) ORDER BY t.created_at DESC LIMIT $limit OFFSET $offset_ac");
-    $stmt->execute(['id' => $user['id']]);
-    $tickets_ac = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    ?>
-
-    <!-- BANDEJA SIN ASIGNAR: TECNICO -->
-    <div class="card card-plain border-0 mb-4 shadow-sm">
-        <div class="card-header bg-transparent border-bottom-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold mb-0 text-dark">
-                <i class="bi bi-inbox-fill text-warning me-2"></i> Tickets Pendientes Sin Asignar
-            </h5>
-            <span class="badge rounded-pill bg-warning text-dark px-3 py-2 fs-6">
-                <?php echo count($tickets_pend); ?> disponible(s)
-            </span>
-        </div>
-        <div class="card-body p-0 pb-2">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
-                        <tr>
-                            <th class="ps-4">Ticket</th>
-                            <th>Usuario / Remitente</th>
-                            <th>Oficina</th>
-                            <th>Asunto</th>
-                            <th>Categoría</th>
-                            <th>Estado</th>
-                            <th>Fecha</th>
-                            <th class="text-end pe-4">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($tickets_pend) > 0): ?>
-                            <?php foreach ($tickets_pend as $tp):
-                                $tpBadge = 'badge-' . str_replace(' ', '-', $tp['current_status']);
-                            ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $tp['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold">#<?php echo htmlspecialchars($tp['id']); ?></span></td>
-                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($tp['first_name'] . ' ' . $tp['last_name']); ?></td>
-                                <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($tp['office_name'] ?? 'Sin oficina'); ?></span></td>
-                                <td class="fw-semibold text-dark"><?php echo htmlspecialchars($tp['title']); ?></td>
-                                <td><span class="badge bg-secondary opacity-75"><?php echo htmlspecialchars($tp['category']); ?></span></td>
-                                <td><span class="badge status-badge <?php echo $tpBadge; ?>"><?php echo htmlspecialchars($tp['current_status']); ?></span></td>
-                                <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($tp['created_at'])); ?></td>
-                                <td class="pe-4 text-end" onclick="event.stopPropagation();">
-                                    <form method="POST" class="d-inline" action="index.php">
-                                        <input type="hidden" name="take_ticket_id" value="<?php echo $tp['id']; ?>">
-                                        <button type="submit" class="btn btn-sm text-white rounded-pill px-3 shadow-sm" style="background:var(--accent)" onclick="return confirm('¿Deseas auto-asignarte y comenzar la atención del ticket #<?php echo $tp['id']; ?>?')">
-                                            <i class="bi bi-hand-index-thumb me-1"></i> Tomar Ticket
-                                        </button>
-                                    </form>
-                                    <a href="ticket_detalle.php?id=<?php echo $tp['id']; ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-3 ms-1">Ver</a>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-check-all me-1 text-success fs-5"></i> ¡Excelente! No hay tickets pendientes por asignar.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- TABLA ACTIVOS: TECNICO -->
-    <div class="card card-plain border-0 mb-4">
-        <div class="card-header bg-transparent border-bottom-0 pt-4 pb-3">
-            <h5 class="fw-bold mb-0"><i class="bi bi-list-task text-primary me-2"></i> Mis Tickets Asignados Activos</h5>
-        </div>
-        <div class="card-body p-0 pb-3">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="text-muted" style="font-size:.75rem; text-transform:uppercase;">
-                        <tr>
-                            <th class="ps-4">Ticket</th>
-                            <th>Usuario / Remitente</th>
-                            <th>Oficina</th>
-                            <th>Asunto</th>
-                            <th>Categoría</th>
-                            <th>Estado</th>
-                            <th>Fecha</th>
-                            <th class="text-end pe-4">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($tickets_ac) > 0): ?>
-                            <?php foreach ($tickets_ac as $t): 
-                                $badgeClass = 'badge-' . str_replace(' ', '-', $t['current_status']);
-                            ?>
-                            <tr class="ticket-row" onclick="window.location='ticket_detalle.php?id=<?php echo $t['id']; ?>'">
-                                <td class="ps-4"><span class="text-muted fw-bold">#<?php echo htmlspecialchars($t['id']); ?></span></td>
-                                <td><?php echo htmlspecialchars($t['first_name'] . ' ' . $t['last_name']); ?></td>
-                                <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($t['office_name'] ?? 'Sin oficina'); ?></span></td>
-                                <td class="fw-medium text-dark"><?php echo htmlspecialchars($t['title']); ?></td>
-                                <td><span class="badge bg-secondary opacity-75"><?php echo htmlspecialchars($t['category']); ?></span></td>
-                                <td><span class="badge status-badge <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($t['current_status']); ?></span></td>
-                                <td class="text-muted small"><i class="bi bi-clock me-1"></i> <?php echo date('d M Y, H:i', strtotime($t['created_at'])); ?></td>
-                                <td class="pe-4 text-end"><a href="ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Gestionar</a></td>
+                                <td class="pe-4 text-end"><a href="ticket/ticket_detalle.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">Detalles</a></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
@@ -428,8 +466,8 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
 
 
 <?php elseif (!$is_logged_in): ?>
-    <div style="margin-top:-2.5rem; padding-bottom: 3rem;">
-        <div class="card card-plain p-4 p-md-5 mx-auto" style="max-width: 860px;">
+    <div style="margin-top:-2rem; padding-bottom: 3rem;">
+        <div class="card card-plain p-3 p-md-4 mx-auto glass-card" style="max-width: 1050px;">
 
             <!-- Card con tabs publicas -->
             <ul class="nav nav-tabs-public mb-4" id="publicTabs">
@@ -459,20 +497,38 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <form method="POST" enctype="multipart/form-data" id="publicTicketForm">
 
                         <div class="row g-3 mb-3">
-                            <!-- DNI y Oficina primero -->
-                            <div class="col-md-6">
+                            <!-- Fila 1: Datos Personales -->
+                            <div class="col-md-3">
                                 <label class="form-label small fw-medium">DNI <span class="text-danger">*</span></label>
                                 <input type="text" name="dni" id="f_dni" class="form-control" required
                                     placeholder="Tu DNI"
                                     value="<?php echo $post['dni']; ?>">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-medium">Nombres</label>
+                                <input type="text" name="first_name" class="form-control" placeholder="Tus nombres"
+                                    value="<?php echo $post['first_name']; ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-medium">Apellidos</label>
+                                <input type="text" name="last_name" class="form-control" placeholder="Tus apellidos"
+                                    value="<?php echo $post['last_name']; ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-medium">Tel&eacute;fono <span class="text-danger">*</span></label>
+                                <input type="text" name="phone" id="f_phone" class="form-control" required
+                                    placeholder="Nro contacto"
+                                    value="<?php echo $post['phone']; ?>">
+                            </div>
+
+                            <!-- Fila 2: Detalles del Ticket -->
+                            <div class="col-md-4">
                                 <label class="form-label small fw-medium">Oficina <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="hidden" name="office_id"   id="public_office_id"   value="<?php echo $post['office_id']; ?>">
                                     <input type="hidden" name="office_name" id="public_office_name" value="<?php echo $post['office_name']; ?>">
                                     <input type="text" class="form-control bg-white" id="public_office_display"
-                                        placeholder="Haz clic para buscar..."
+                                        placeholder="Buscar..."
                                         value="<?php echo $post['office_name']; ?>"
                                         readonly onclick="openOfficeSearch('public_office_id','public_office_display','public_office_name')"
                                         style="cursor:pointer;">
@@ -483,27 +539,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                 </div>
                                 <div id="office_error" class="text-danger small mt-1" style="display:none;">Por favor selecciona una oficina.</div>
                             </div>
-
-                            <!-- Nombres, Apellidos y Teléfono -->
-                            <div class="col-md-4">
-                                <label class="form-label small fw-medium">Nombres</label>
-                                <input type="text" name="first_name" class="form-control" placeholder="Tus nombres"
-                                    value="<?php echo $post['first_name']; ?>">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-medium">Apellidos</label>
-                                <input type="text" name="last_name" class="form-control" placeholder="Tus apellidos"
-                                    value="<?php echo $post['last_name']; ?>">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-medium">Tel&eacute;fono <span class="text-danger">*</span></label>
-                                <input type="text" name="phone" id="f_phone" class="form-control" required
-                                    placeholder="Nro para contactarte"
-                                    value="<?php echo $post['phone']; ?>">
-                            </div>
-
-                            <!-- Categoría y Asunto -->
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label small fw-medium">Categor&iacute;a <span class="text-danger">*</span></label>
                                 <select class="form-select" name="category" id="f_category" required>
                                     <option value="" <?php echo $post['category']==='' ? 'selected disabled' : ''; ?>>Selecciona...</option>
@@ -514,18 +550,18 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                     <option value="Otro"        <?php echo $post['category']==='Otro'        ? 'selected':''; ?>>Otro</option>
                                 </select>
                             </div>
-                            <div class="col-md-8">
+                            <div class="col-md-5">
                                 <label class="form-label small fw-medium">Asunto <span class="text-danger">*</span></label>
                                 <input type="text" name="title" id="f_title" class="form-control" required
-                                    placeholder="Describe el problema en pocas palabras"
+                                    placeholder="Breve descripción del problema"
                                     value="<?php echo $post['title']; ?>">
                             </div>
 
-                            <!-- Descripción -->
+                            <!-- Fila 3: Descripción -->
                             <div class="col-12">
                                 <label class="form-label small fw-medium">Descripci&oacute;n</label>
-                                <textarea name="description" class="form-control" rows="4"
-                                    placeholder="Cu&eacute;ntanos con detalle qu&eacute; sucede..."><?php echo $post['description']; ?></textarea>
+                                <textarea name="description" class="form-control" rows="2"
+                                    placeholder="Cu&eacute;ntanos con más detalle qu&eacute; sucede..."><?php echo $post['description']; ?></textarea>
                             </div>
                         </div>
 
@@ -705,7 +741,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             <?php endif; ?>
 
                             <div class="input-group input-group-sm">
-                                <a href="ticket_status.php?id=<?php echo $pub_result['id']; ?>&dni=<?php echo urlencode($pub_result['dni']); ?>"
+                                <a href="ticket/ticket_status.php?id=<?php echo $pub_result['id']; ?>&dni=<?php echo urlencode($pub_result['dni']); ?>"
                                    class="btn btn-sm text-white" style="background:var(--accent)">
                                     <i class="bi bi-arrow-right-circle me-1"></i> Ver detalle completo
                                 </a>
@@ -719,7 +755,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                     <?php endif; ?>
 
                     <p class="small text-center mt-4 mb-0" style="color:var(--muted)">
-                        &iquest;Ya tienes cuenta? <a href="login.php">Inicia sesi&oacute;n</a> para ver todo tu historial.
+                        &iquest;Ya tienes cuenta? <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Inicia sesi&oacute;n</a> para ver todo tu historial.
                     </p>
 
                 </div><!-- /pane-consultar -->
@@ -805,6 +841,217 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
         }
     })();
     </script>
+<?php endif; ?>
+
+<?php if (!$is_logged_in): ?>
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 p-md-5 pt-0">
+                <div class="text-center mb-4">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 70px; height: 70px;">
+                        <i class="bi bi-headset fs-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Soporte Alianza</h3>
+                    <p class="text-muted">Inicia sesión para continuar</p>
+                </div>
+                <?php if (!empty($login_error)): ?>
+                    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo htmlspecialchars($login_error); ?></div>
+                <?php endif; ?>
+                <form method="POST">
+                    <input type="hidden" name="action" value="login">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium text-dark">DNI</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                            <input type="text" name="dni" class="form-control" placeholder="Ingresa tu DNI" required autofocus>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-medium text-dark">Contraseña</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-lock"></i></span>
+                            <input type="password" name="password" class="form-control" placeholder="Tu contraseña" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fs-5 text-white">
+                        Ingresar <i class="bi bi-box-arrow-in-right ms-1"></i>
+                    </button>
+                    <div class="mt-3 text-center">
+                        <span class="text-muted">¿No tienes cuenta?</span> <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal" class="text-primary text-decoration-none fw-medium">Regístrate aquí</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 p-md-5 pt-0">
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold text-dark">Registro de Usuario</h3>
+                    <p class="text-muted">Crea tu cuenta en Soporte Alianza</p>
+                </div>
+                <?php if (!empty($register_error)): ?>
+                    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo htmlspecialchars($register_error); ?></div>
+                <?php endif; ?>
+                <form method="POST" novalidate>
+                    <input type="hidden" name="action" value="register">
+                    <div class="row g-3">
+                        <!-- Fila 1: Documento, Nombres y Apellidos -->
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-medium text-dark">Tipo <span class="text-danger">*</span></label>
+                            <select name="doc_type" id="doc_type" class="form-select" onchange="updateDniField()">
+                                <option value="DNI" <?php echo $register_val['doc_type']==='DNI' ? 'selected':''; ?>>DNI</option>
+                                <option value="CE"  <?php echo $register_val['doc_type']==='CE'  ? 'selected':''; ?>>Carnet Ext.</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-medium text-dark" id="dni_label">N° Documento <span class="text-danger">*</span></label>
+                            <input type="text" name="dni" id="dni_input" class="form-control <?php echo fieldClass('dni', $fieldErrors); ?>" placeholder="Ej: 70000000" maxlength="8" pattern="[0-9]{8}" required value="<?php echo htmlspecialchars($register_val['dni']); ?>">
+                            <?php echo fieldMsg('dni', $fieldErrors); ?>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-medium text-dark">Nombres <span class="text-danger">*</span></label>
+                            <input type="text" name="first_name" class="form-control <?php echo fieldClass('first_name', $fieldErrors); ?>" required value="<?php echo htmlspecialchars($register_val['first_name']); ?>">
+                            <?php echo fieldMsg('first_name', $fieldErrors); ?>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-medium text-dark">Apellidos <span class="text-danger">*</span></label>
+                            <input type="text" name="last_name" class="form-control <?php echo fieldClass('last_name', $fieldErrors); ?>" required value="<?php echo htmlspecialchars($register_val['last_name']); ?>">
+                            <?php echo fieldMsg('last_name', $fieldErrors); ?>
+                        </div>
+
+                        <!-- Fila 2: Contacto y Oficina -->
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-medium text-dark">Teléfono <span class="text-danger">*</span></label>
+                            <input type="text" name="phone" class="form-control <?php echo fieldClass('phone', $fieldErrors); ?>" placeholder="Ej: 999888777" pattern="[0-9]{9}" maxlength="9" title="Debe contener exactamente 9 dígitos" required value="<?php echo htmlspecialchars($register_val['phone']); ?>">
+                            <?php echo fieldMsg('phone', $fieldErrors); ?>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label fw-medium text-dark">Correo Electrónico</label>
+                            <input type="email" name="email" class="form-control <?php echo fieldClass('email', $fieldErrors); ?>" placeholder="correo@empresa.com" value="<?php echo htmlspecialchars($register_val['email']); ?>">
+                            <?php echo fieldMsg('email', $fieldErrors); ?>
+                        </div>
+                        <div class="col-md-5 mb-2">
+                            <label class="form-label fw-medium text-dark">Oficina <span class="text-danger">*</span></label>
+                            <select name="office_id" class="form-select <?php echo fieldClass('office_id', $fieldErrors); ?>" required>
+                                <option value="">Seleccione una oficina...</option>
+                                <?php foreach($offices as $of): ?>
+                                    <option value="<?php echo $of['id']; ?>" <?php echo ($register_val['office_id'] == $of['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($of['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php echo fieldMsg('office_id', $fieldErrors); ?>
+                        </div>
+
+                        <!-- Fila 3: Contraseña -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-medium text-dark">Contraseña <span class="text-danger">*</span></label>
+                            <input type="password" name="password" class="form-control <?php echo fieldClass('password', $fieldErrors); ?>" required>
+                            <?php echo fieldMsg('password', $fieldErrors); ?>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-medium text-dark">Confirmar Contraseña <span class="text-danger">*</span></label>
+                            <input type="password" name="password_confirm" class="form-control <?php echo fieldClass('password_confirm', $fieldErrors); ?>" required>
+                            <?php echo fieldMsg('password_confirm', $fieldErrors); ?>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fs-5 text-white fw-bold">
+                        Registrar Cuenta <i class="bi bi-person-plus-fill ms-1"></i>
+                    </button>
+                    <div class="mt-3 text-center">
+                        <span class="text-muted">¿Ya tienes una cuenta?</span> <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal" class="text-primary text-decoration-none fw-medium">Ingresa aquí</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos para los modales */
+.modal-backdrop.login-blur {
+    backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.4);
+}
+.modal-backdrop.register-transparent {
+    backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.4);
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if (!empty($login_error)): ?>
+        var loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        loginModal.show();
+    <?php elseif (!empty($register_error) || !empty($fieldErrors)): ?>
+        var registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+        registerModal.show();
+    <?php endif; ?>
+
+    const loginModalEl = document.getElementById('loginModal');
+    const registerModalEl = document.getElementById('registerModal');
+
+    if (loginModalEl) {
+        loginModalEl.addEventListener('show.bs.modal', function () {
+            setTimeout(() => {
+                const backdrop = document.querySelector('.modal-backdrop:last-child');
+                if (backdrop) {
+                    backdrop.classList.add('login-blur');
+                    backdrop.classList.remove('register-transparent');
+                }
+            }, 10);
+        });
+    }
+
+    if (registerModalEl) {
+        registerModalEl.addEventListener('show.bs.modal', function () {
+            setTimeout(() => {
+                const backdrop = document.querySelector('.modal-backdrop:last-child');
+                if (backdrop) {
+                    backdrop.classList.add('register-transparent');
+                    backdrop.classList.remove('login-blur');
+                }
+            }, 10);
+        });
+    }
+
+    window.updateDniField = function() {
+        const sel   = document.getElementById('doc_type');
+        const input = document.getElementById('dni_input');
+        const label = document.getElementById('dni_label');
+        if (!sel || !input) return;
+
+        if (sel.value === 'CE') {
+            input.maxLength   = 9;
+            input.pattern     = '[0-9]{9}';
+            input.placeholder = 'Ej: 123456789';
+            if (label) label.innerHTML = 'N° Carnet Ext. <span class="text-danger">*</span>';
+        } else {
+            input.maxLength   = 8;
+            input.pattern     = '[0-9]{8}';
+            input.placeholder = 'Ej: 70000000';
+            if (label) label.innerHTML = 'N° Documento <span class="text-danger">*</span>';
+        }
+    }
+
+    if(document.getElementById('doc_type')) {
+        updateDniField();
+    }
+});
+</script>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

@@ -108,7 +108,7 @@ require 'includes/header.php';
 ?>
 
 <div class="row pt-4 mb-5">
-    <div class="col-12 mb-4 d-flex align-items-center">
+    <div class="card p-3 mb-4 flex-row align-items-center w-100">
         <button type="button" class="btn btn-outline-secondary rounded-circle me-3 flex-shrink-0" onclick="history.back()" style="width: 40px; height: 40px; padding: 0; line-height:38px; text-align:center;" title="Volver atrás">
             <i class="bi bi-arrow-left"></i>
         </button>

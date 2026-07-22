@@ -2,7 +2,7 @@
 // Evitar ejecución directa y asegurar inicio de sesión
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../index.php");
     exit();
 }
 $user_session = $user_session ?? $_SESSION['user'];
@@ -62,7 +62,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <a class="nav-link <?php echo $currentPage == 'configuracion.php' ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/admin/configuracion.php">
                 <i class="bi bi-gear me-2"></i>Configuración
             </a>
-            <a class="nav-link text-danger" href="<?php echo BASE_URL; ?>/logout.php">
+            <a class="nav-link text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
                 <i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión
             </a>
         </div>
@@ -84,20 +84,32 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </nav>
 
     <div class="main" id="main-content">
-        <div class="topbar flex-wrap gap-2">
-            <div class="d-flex align-items-center">
-                <button class="btn btn-sm btn-outline-secondary d-lg-none me-3" id="btnToggleSidebar">
-                    <i class="bi bi-list"></i>
-                </button>
-                <div>
-                    <h5 class="mb-0 fw-bold">Administración</h5>
-                    <div class="small" style="color:var(--muted)">Sistema de Soporte</div>
+        <!-- Main Content Wrapper -->
+        <div class="main-content flex-grow-1 p-4">
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-body p-4 text-center">
+                <div class="text-danger mb-3">
+                    <i class="bi bi-box-arrow-right" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="fw-bold mb-3">¿Cerrar sesión?</h5>
+                <p class="text-muted mb-4">¿Estás seguro de que deseas salir del sistema?</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light w-50 fw-medium" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="<?php echo BASE_URL; ?>/logout.php" class="btn btn-danger w-50 fw-medium">Salir</a>
                 </div>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <a href="<?php echo BASE_URL; ?>/admin/configuracion.php" class="text-muted"><i class="bi bi-gear"></i></a>
-                <span class="avatar-circle"><?php echo htmlspecialchars($initials); ?></span>
-            </div>
+        </div>
+    </div>
+</div>
+        <!-- Botón de menú solo para móviles -->
+        <div class="d-lg-none p-3 pb-0">
+            <button class="btn btn-sm btn-outline-secondary" id="btnToggleSidebar">
+                <i class="bi bi-list"></i>
+            </button>
         </div>
 
         <div class="p-4 fade-in">

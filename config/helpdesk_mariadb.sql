@@ -56,6 +56,7 @@ CREATE TABLE trabajadores (
 -- Tabla: usuarios
 CREATE TABLE usuarios (
   id         INT          NOT NULL AUTO_INCREMENT,
+  doc_type   ENUM('DNI','CE') NOT NULL DEFAULT 'DNI',
   dni        VARCHAR(20)  NOT NULL,
   first_name VARCHAR(100) NOT NULL,
   last_name  VARCHAR(100) NOT NULL,
@@ -67,7 +68,6 @@ CREATE TABLE usuarios (
   is_active  TINYINT(1)   NOT NULL DEFAULT 1,
   PRIMARY KEY (id),
   UNIQUE KEY uq_usuarios_dni   (dni),
-  UNIQUE KEY uq_usuarios_email (email),
   CONSTRAINT fk_usuarios_oficina
     FOREIGN KEY (office_id) REFERENCES oficina (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

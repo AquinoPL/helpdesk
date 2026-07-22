@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $phone = trim($_POST['phone']);
         $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
         $role = $_POST['role'];
-        $is_active = isset($_POST['is_active']) ? 'true' : 'false';
+        $is_active = isset($_POST['is_active']) ? 1 : 0;
         $password = $_POST['password'];
         
         try {
@@ -73,6 +73,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $error = "Error al suspender trabajador: " . $e->getMessage();
             }
         }
+    } elseif ($action == 'hard_delete') {
+        $id = $_POST['id'];
+        if ($id == $_SESSION['user']['id']) {
+            $error = "No puedes eliminar tu propia cuenta.";
+        } else {
+            try {
+                $stmt = $conn->prepare("DELETE FROM trabajadores WHERE id=?");
+                $stmt->execute([$id]);
+                $success = "Trabajador eliminado permanentemente.";
+            } catch(PDOException $e) {
+                if ($e->getCode() == 23000 || $e->getCode() == '23000') {
+                    $error = "No se puede eliminar el trabajador porque tiene registros asociados (ej. tickets).";
+                } else {
+                    $error = "Error al eliminar: " . $e->getMessage();
+                }
+            }
+        }
     }
 }
 
@@ -99,7 +116,7 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
 
 require 'includes/admin_header.php';
 ?>
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="card p-3 mt-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
     <div class="d-flex flex-column flex-md-row align-items-md-center gap-3 w-100">
         <h2 class="fw-bold mb-0">Gestión de Personal</h2>
         <div class="input-group shadow-sm" style="max-width: 300px;">
@@ -177,8 +194,17 @@ require 'includes/admin_header.php';
                                 <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'revocar acceso al trabajador');">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?php echo $t['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Evocar acceso">
-                                        <i class="bi bi-person-x"></i>
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Suspender acceso">
+                                        <i class="bi bi-person-slash"></i>
+                                    </button>
+                                </form>
+                                <?php endif; ?>
+                                <?php if ($t['id'] != $_SESSION['user']['id']): ?>
+                                <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'eliminar PERMANENTEMENTE al trabajador');">
+                                    <input type="hidden" name="action" value="hard_delete">
+                                    <input type="hidden" name="id" value="<?php echo $t['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar Permanentemente">
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
                                 <?php endif; ?>
@@ -241,6 +267,13 @@ require 'includes/admin_header.php';
                                 ?>)'>
                                     <i class="bi bi-arrow-counterclockwise"></i> Reactivar
                                 </button>
+                                <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'eliminar PERMANENTEMENTE al trabajador');">
+                                    <input type="hidden" name="action" value="hard_delete">
+                                    <input type="hidden" name="id" value="<?php echo $t['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar Permanentemente">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         <?php endforeach; ?>

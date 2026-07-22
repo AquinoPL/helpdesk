@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
-require 'config/database.php';
+require '../config/database.php';
 
 $ticket_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $dni_param = isset($_GET['dni']) ? trim($_GET['dni']) : '';

@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $email = trim($_POST['email']);
         $phone = trim($_POST['phone']);
         $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
-        $is_active = isset($_POST['is_active']) ? 'true' : 'false';
+        $is_active = isset($_POST['is_active']) ? 1 : 0;
         $password = $_POST['password'];
         
         try {
@@ -65,6 +65,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } catch(PDOException $e) {
             $error = "Error al suspender usuario: " . $e->getMessage();
         }
+    } elseif ($action == 'hard_delete') {
+        $id = $_POST['id'];
+        try {
+            $stmt = $conn->prepare("DELETE FROM usuarios WHERE id=?");
+            $stmt->execute([$id]);
+            $success = "Usuario eliminado permanentemente.";
+        } catch(PDOException $e) {
+            if ($e->getCode() == 23000 || $e->getCode() == '23000') {
+                $error = "No se puede eliminar el usuario porque tiene tickets asociados.";
+            } else {
+                $error = "Error al eliminar: " . $e->getMessage();
+            }
+        }
     }
 }
 
@@ -91,7 +104,7 @@ $offices = $stmtOffices->fetchAll(PDO::FETCH_ASSOC);
 
 require 'includes/admin_header.php';
 ?>
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="card p-3 mt-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
     <div class="d-flex flex-column flex-md-row align-items-md-center gap-3 w-100">
         <h2 class="fw-bold mb-0">Directorio de Usuarios</h2>
         <div class="input-group shadow-sm" style="max-width: 300px;">
@@ -166,11 +179,18 @@ require 'includes/admin_header.php';
                                 <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'suspender al usuario');">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Suspender">
-                                        <i class="bi bi-person-x"></i>
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Suspender">
+                                        <i class="bi bi-person-slash"></i>
                                     </button>
                                 </form>
                                 <?php endif; ?>
+                                <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'eliminar PERMANENTEMENTE al usuario');">
+                                    <input type="hidden" name="action" value="hard_delete">
+                                    <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar Permanentemente">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -226,6 +246,13 @@ require 'includes/admin_header.php';
                                 ?>)'>
                                     <i class="bi bi-arrow-counterclockwise"></i> Reactivar
                                 </button>
+                                <form method="POST" class="d-inline" onsubmit="confirmAction(event, this, 'eliminar PERMANENTEMENTE al usuario');">
+                                    <input type="hidden" name="action" value="hard_delete">
+                                    <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar Permanentemente">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         <?php endforeach; ?>

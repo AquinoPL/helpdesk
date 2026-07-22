@@ -1,6 +1,6 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
-require 'config/database.php';
+require '../config/database.php';
 
 if (!defined('BASE_URL')) {
     if (strpos($_SERVER['SCRIPT_NAME'], '/Soporte-Alianza') !== false) {
@@ -14,7 +14,7 @@ $is_logged_in = isset($_SESSION["user"]);
 $user = $is_logged_in ? $_SESSION["user"] : null;
 
 if (!$is_logged_in) {
-    header("Location: " . BASE_URL . "/login.php");
+    header("Location: " . BASE_URL . "/index.php");
     exit();
 }
 
@@ -27,7 +27,7 @@ $limit = 10;
 $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
 $offset = ($page - 1) * $limit;
 
-require 'includes/header.php';
+require '../includes/header.php';
 
 function renderPagination($current, $total, $paramName) {
     if ($total <= 1) return "";
@@ -41,8 +41,7 @@ function renderPagination($current, $total, $paramName) {
 }
 ?>
 
-<div class="row mb-4 align-items-center">
-    <div class="col">
+<div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center"><div>
         <h2 class="fw-bold mb-1">Historial de Tickets</h2>
         <p class="text-muted mb-0">Revisa los tickets que ya han sido procesados y finalizados.</p>
     </div>
@@ -163,4 +162,4 @@ function renderPagination($current, $total, $paramName) {
     </div>
 <?php endif; ?>
 
-<?php require 'includes/footer.php'; ?>
+<?php require '../includes/footer.php'; ?>

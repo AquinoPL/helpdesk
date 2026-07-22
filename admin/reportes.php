@@ -196,8 +196,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
+<div class="card p-3 mt-4 mb-4 flex-row justify-content-between align-items-center"><div>
         <h4 class="fw-bold mb-0">Reportes y Estadísticas</h4>
         <div class="text-muted small">Visualiza y exporta métricas de atención de tickets.</div>
     </div>
