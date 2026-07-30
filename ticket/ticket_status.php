@@ -102,6 +102,14 @@ endif;
                     <p class="text-muted mb-0"><i class="spinner-grow spinner-grow-sm text-success me-1" style="width: 0.8rem; height: 0.8rem;"></i> Actualizado en tiempo real</p>
                 </div>
             </div>
+            
+            <?php if ($current_status === 'Pendiente'): ?>
+            <div class="text-md-end mt-3 mt-md-0">
+                <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deletePublicModalStatus">
+                    <i class="bi bi-trash me-1"></i> Cancelar Ticket
+                </button>
+            </div>
+            <?php endif; ?>
         </div>
 
         <?php if (!empty($tecnico_asignado)): ?>
@@ -111,14 +119,14 @@ endif;
                     <div class="d-flex align-items-center gap-3">
                         <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                              style="width:52px; height:52px; background: linear-gradient(135deg, #12324a, #2b8f9e); color:#fff; font-size:1.3rem; font-weight:700;">
-                            <?php echo strtoupper(substr($tecnico_asignado['first_name'], 0, 1)); ?>
+                            T
                         </div>
                         <div>
                             <div class="text-muted small text-uppercase fw-bold" style="font-size:.68rem; letter-spacing:.06em;">
-                                <i class="bi bi-person-badge me-1"></i>Técnico asignado a tu ticket
+                                <i class="bi bi-person-badge me-1"></i>Asignado a tu ticket
                             </div>
                             <div class="fw-bold text-dark fs-5 mb-0">
-                                <?php echo htmlspecialchars($tecnico_asignado['first_name'] . ' ' . $tecnico_asignado['last_name']); ?>
+                                Técnico de Soporte
                             </div>
                             <?php if (!empty($tecnico_asignado['phone'])): ?>
                             <div class="text-muted small mt-1">
@@ -413,5 +421,31 @@ endif;
     // Refresh every 10 seconds
     setInterval(pollTicketData, 10000);
 </script>
+
+<?php if ($current_status === 'Pendiente'): ?>
+<!-- Modal de confirmación de eliminación -->
+<div class="modal fade" id="deletePublicModalStatus" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow text-start">
+            <div class="modal-header text-white bg-danger border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Cancelación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4 text-dark fs-6" style="white-space: normal;">
+                ¿Estás seguro de que deseas cancelar y eliminar este ticket permanentemente? Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <form method="POST" action="../index.php" class="d-inline">
+                    <input type="hidden" name="action" value="delete_public_ticket">
+                    <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
+                    <input type="hidden" name="dni" value="<?php echo htmlspecialchars($ticket['dni']); ?>">
+                    <button type="submit" class="btn btn-danger fw-bold">Sí, eliminar ticket</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php require '../includes/footer.php'; ?>

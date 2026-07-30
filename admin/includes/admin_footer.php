@@ -3,12 +3,26 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- TomSelect JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- Script para Sidebar y alertas -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Initialize TomSelect for searchable dropdowns
+        document.querySelectorAll('.searchable-select').forEach(function(el) {
+            new TomSelect(el, {
+                create: false,
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                },
+                placeholder: 'Seleccione o escriba para buscar...'
+            });
+        });
+        
         const btnToggle = document.getElementById('btnToggleSidebar');
         const sidebar = document.getElementById('sidebar');
 

@@ -106,7 +106,11 @@ require 'includes/admin_header.php';
                             <td><?php echo htmlspecialchars($o['location'] ?? ''); ?></td>
                             <td class="text-center">
                                 <?php if(!empty($o['location_detail'])): ?>
-                                    <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                    <?php if(preg_match('/^https?:\/\//', $o['location_detail'])): ?>
+                                        <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                    <?php else: ?>
+                                        <span class="text-muted small"><?php echo htmlspecialchars($o['location_detail']); ?></span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="text-muted small fst-italic">N/A</span>
                                 <?php endif; ?>
@@ -171,7 +175,11 @@ require 'includes/admin_header.php';
                             <td class="text-muted"><?php echo htmlspecialchars($o['location'] ?? ''); ?></td>
                             <td class="text-center">
                                 <?php if(!empty($o['location_detail'])): ?>
-                                    <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                    <?php if(preg_match('/^https?:\/\//', $o['location_detail'])): ?>
+                                        <a href="<?php echo htmlspecialchars($o['location_detail']); ?>" target="_blank" class="btn btn-sm btn-outline-danger shadow-sm py-0 px-2 rounded-pill"><i class="bi bi-geo-alt-fill me-1"></i> Ver</a>
+                                    <?php else: ?>
+                                        <span class="text-muted small"><?php echo htmlspecialchars($o['location_detail']); ?></span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="text-muted small fst-italic">N/A</span>
                                 <?php endif; ?>
@@ -215,11 +223,11 @@ require 'includes/admin_header.php';
                   <input type="text" class="form-control" name="location">
               </div>
               <div class="mb-3">
-                  <label class="form-label fw-bold">Enlace a Google Maps (Opcional)</label>
+                  <label class="form-label fw-bold">Detalle de Ubicación (URL o Descripción)</label>
                   <div class="input-group">
-                      <input type="url" class="form-control" name="location_detail" placeholder="https://maps.app.goo.gl/...">
+                      <input type="text" class="form-control" name="location_detail" placeholder="Ej. https://maps... o 'Piso 3, Torre A'">
                       <button type="button" class="btn btn-outline-danger" onclick="window.open('https://maps.google.com', 'MapsSearch', 'width=800,height=600,left=200,top=100');" title="Abrir Maps en ventana pequeña">
-                          <i class="bi bi-geo-alt"></i> Buscar
+                          <i class="bi bi-geo-alt"></i> Buscar Maps
                       </button>
                   </div>
               </div>
@@ -254,11 +262,11 @@ require 'includes/admin_header.php';
                   <input type="text" class="form-control" name="location" id="edit_location">
               </div>
               <div class="mb-3">
-                  <label class="form-label fw-bold">Enlace a Google Maps (Opcional)</label>
+                  <label class="form-label fw-bold">Detalle de Ubicación (URL o Descripción)</label>
                   <div class="input-group">
-                      <input type="url" class="form-control" name="location_detail" id="edit_location_detail" placeholder="https://maps.app.goo.gl/...">
+                      <input type="text" class="form-control" name="location_detail" id="edit_location_detail" placeholder="Ej. https://maps... o 'Piso 3, Torre A'">
                       <button type="button" class="btn btn-outline-danger" onclick="window.open('https://maps.google.com', 'MapsSearch', 'width=800,height=600,left=200,top=100');" title="Abrir Maps en ventana pequeña">
-                          <i class="bi bi-geo-alt"></i> Buscar
+                          <i class="bi bi-geo-alt"></i> Buscar Maps
                       </button>
                   </div>
               </div>

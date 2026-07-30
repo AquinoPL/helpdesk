@@ -53,7 +53,32 @@ $post = [
 if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
     $action = $_POST['action'] ?? 'create_ticket';
 
-    if ($action === 'login') {
+    if ($action === 'delete_public_ticket') {
+        $ticket_id = (int)$_POST['ticket_id'];
+        $dni = trim($_POST['dni']);
+        try {
+            $stmt = $conn->prepare("
+                SELECT t.id 
+                FROM tickets t
+                JOIN usuarios u ON t.user_id = u.id
+                WHERE t.id = ? AND u.dni = ? AND COALESCE(t.status, 'Pendiente') = 'Pendiente'
+            ");
+            $stmt->execute([$ticket_id, $dni]);
+            if ($stmt->fetchColumn()) {
+                $conn->beginTransaction();
+                $conn->prepare("DELETE FROM ticket_files WHERE ticket_id = ?")->execute([$ticket_id]);
+                $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ?")->execute([$ticket_id]);
+                $conn->prepare("DELETE FROM tickets WHERE id = ?")->execute([$ticket_id]);
+                $conn->commit();
+                header("Location: index.php?tab=consultar&deleted=1");
+                exit();
+            } else {
+                $pub_error = "No se puede eliminar el ticket. Verifique que exista y que aún esté Pendiente.";
+            }
+        } catch(PDOException $e) {
+            $pub_error = "Error al intentar eliminar el ticket.";
+        }
+    } elseif ($action === 'login') {
         $dni = trim($_POST["dni"] ?? '');
         $password = trim($_POST["password"] ?? '');
 
@@ -121,12 +146,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
 
         if (empty($fieldErrors)) {
             try {
-                $stmt = $conn->prepare("INSERT INTO usuarios (doc_type, dni, first_name, last_name, email, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $doc_type, $dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id ?: null, $password
-                ]);
+                // Verificar si existe un usuario "invitado" (is_registered = 0)
+                $stmtCheck = $conn->prepare("SELECT id, is_registered FROM usuarios WHERE dni = ?");
+                $stmtCheck->execute([$dni]);
+                $existingUser = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-                $newId = $conn->lastInsertId();
+                if ($existingUser) {
+                    if ($existingUser['is_registered'] == 1) {
+                        // Forzar el error para que caiga en el catch o manejarlo aquí
+                        throw new PDOException("DNI_EXISTS", 23000);
+                    } else {
+                        // Actualizar el usuario invitado a registrado
+                        $stmt = $conn->prepare("UPDATE usuarios SET doc_type=?, first_name=?, last_name=?, email=?, phone=?, office_id=?, password=?, is_registered=1 WHERE id=?");
+                        $stmt->execute([
+                            $doc_type, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id ?: null, $password, $existingUser['id']
+                        ]);
+                        $newId = $existingUser['id'];
+                    }
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO usuarios (doc_type, dni, first_name, last_name, email, phone, office_id, password, is_registered) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $stmt->execute([
+                        $doc_type, $dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id ?: null, $password
+                    ]);
+                    $newId = $conn->lastInsertId();
+                }
+
                 $_SESSION["user"] = [
                     'id'         => $newId,
                     'dni'        => $dni,
@@ -182,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
                 $user_id = $stmtCheck->fetchColumn();
 
                 if (!$user_id) {
-                    $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmtUser = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, phone, office_id, password, is_registered) VALUES (?, ?, ?, ?, ?, ?, 0)");
                     $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
                     $user_id = $conn->lastInsertId();
                 } else {
@@ -201,28 +245,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
 
                 if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
                     $month_folder = date('Y-m') . '/';
-                    $upload_dir   = 'uploads/' . $month_folder;
-                    if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
-                    if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
+                    $physical_dir = __DIR__ . '/ticket/uploads/' . $month_folder;
+                    $db_dir       = 'uploads/' . $month_folder;
+
+                    if (!is_dir(__DIR__ . '/ticket/uploads/')) mkdir(__DIR__ . '/ticket/uploads/', 0777, true);
+                    if (!is_dir($physical_dir)) mkdir($physical_dir, 0777, true);
 
                     $total = count($_FILES['archivos']['name']);
                     for ($i = 0; $i < $total; $i++) {
                         $tmp_name = $_FILES['archivos']['tmp_name'][$i];
                         if ($tmp_name != "") {
                             $name = $_FILES['archivos']['name'][$i];
+                            
+                            // Validar extensión
+                            $allowed_exts = ['doc', 'docx', 'pdf', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+                            $file_ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                            if (!in_array($file_ext, $allowed_exts)) {
+                                continue;
+                            }
+                            
                             $safe_name = preg_replace("/[^a-zA-Z0-9.]+/", "", basename($name));
-                            $file_path = $upload_dir . 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+                            $filename  = 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+                            $target_file  = $physical_dir . $filename;
+                            $db_file_path = $db_dir . $filename;
 
-                            if (move_uploaded_file($tmp_name, $file_path)) {
+                            if (move_uploaded_file($tmp_name, $target_file)) {
                                 $stmtFile = $conn->prepare("INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)");
-                                $stmtFile->execute([$new_ticket_id, $file_path]);
+                                $stmtFile->execute([$new_ticket_id, $db_file_path]);
                             }
                         }
                     }
                 }
 
                 $conn->commit();
-                header("Location: ticket/ticket_status.php?id=" . $new_ticket_id . "&dni=" . urlencode($dni));
+                if (isset($_SESSION['user'])) {
+                    header("Location: ticket/ticket_detalle.php?id=" . $new_ticket_id);
+                } else {
+                    header("Location: ticket/ticket_status.php?id=" . $new_ticket_id . "&dni=" . urlencode($dni));
+                }
                 exit();
             } catch (PDOException $e) {
                 $conn->rollBack();
@@ -262,6 +322,10 @@ $pub_tab    = isset($_GET['tab']) && $_GET['tab'] === 'consultar' ? 'consultar' 
 $pub_result = null;
 $pub_msgs   = [];
 $pub_error  = '';
+$pub_success = '';
+if (isset($_GET['deleted']) && $_GET['deleted'] == '1') {
+    $pub_success = "El ticket ha sido eliminado exitosamente.";
+}
 if (!$is_logged_in && $pub_tab === 'consultar' && !empty($_GET['ticket_id']) && !empty($_GET['ticket_dni'])) {
     $pub_tid = intval($_GET['ticket_id']);
     $pub_dni = trim($_GET['ticket_dni']);
@@ -466,7 +530,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
 
 
 <?php elseif (!$is_logged_in): ?>
-    <div style="margin-top:-2rem; padding-bottom: 3rem;">
+    <div style="margin-top:-1rem; padding-bottom: 3rem; position:relative; z-index:10;">
         <div class="card card-plain p-3 p-md-4 mx-auto glass-card" style="max-width: 1050px;">
 
             <!-- Card con tabs publicas -->
@@ -499,10 +563,22 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         <div class="row g-3 mb-3">
                             <!-- Fila 1: Datos Personales -->
                             <div class="col-md-3">
-                                <label class="form-label small fw-medium">DNI <span class="text-danger">*</span></label>
-                                <input type="text" name="dni" id="f_dni" class="form-control" required
-                                    placeholder="Tu DNI"
-                                    value="<?php echo $post['dni']; ?>">
+                                <div class="d-flex justify-content-between">
+                                    <label class="form-label small fw-medium" id="pub_dni_label">DNI <span class="text-danger">*</span></label>
+                                    <select id="pub_doc_type" class="form-select form-select-sm" style="width: auto; padding: 0 1.5rem 0 .5rem; height: 20px; font-size: 0.7rem; border: none; background-color: transparent;" onchange="updatePubDniField()">
+                                        <option value="DNI">DNI</option>
+                                        <option value="CE">CE</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" name="dni" id="f_dni" class="form-control" required
+                                        pattern="\d{8}" title="Debe tener 8 dígitos numéricos" placeholder="Ej: 12345678"
+                                        value="<?php echo $post['dni']; ?>">
+                                    <button class="btn btn-outline-primary" type="button" id="btnSearchPublicDni" title="Buscar mis datos">
+                                        <i class="bi bi-search"></i> Buscar
+                                    </button>
+                                </div>
+                                <div id="publicDniStatus" class="form-text mt-1 text-muted" style="font-size: 0.75rem;">Ingresa tu DNI y pulsa Buscar.</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-medium">Nombres</label>
@@ -517,6 +593,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             <div class="col-md-3">
                                 <label class="form-label small fw-medium">Tel&eacute;fono <span class="text-danger">*</span></label>
                                 <input type="text" name="phone" id="f_phone" class="form-control" required
+                                    pattern="[0-9]{9}" maxlength="9" title="Debe contener exactamente 9 dígitos numéricos"
                                     placeholder="Nro contacto"
                                     value="<?php echo $post['phone']; ?>">
                             </div>
@@ -525,19 +602,18 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             <div class="col-md-4">
                                 <label class="form-label small fw-medium">Oficina <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <input type="hidden" name="office_id"   id="public_office_id"   value="<?php echo $post['office_id']; ?>">
-                                    <input type="hidden" name="office_name" id="public_office_name" value="<?php echo $post['office_name']; ?>">
-                                    <input type="text" class="form-control bg-white" id="public_office_display"
-                                        placeholder="Buscar..."
-                                        value="<?php echo $post['office_name']; ?>"
-                                        readonly onclick="openOfficeSearch('public_office_id','public_office_display','public_office_name')"
-                                        style="cursor:pointer;">
-                                    <button type="button" class="btn btn-outline-secondary"
-                                        onclick="openOfficeSearch('public_office_id','public_office_display','public_office_name')">
-                                        <i class="bi bi-search"></i>
-                                    </button>
+                                    <select name="office_id" class="form-select searchable-select <?php echo isset($fieldErrors['office_id']) ? 'is-invalid' : ''; ?>" required>
+                                        <option value="">Seleccione una oficina...</option>
+                                        <?php foreach ($offices as $of): ?>
+                                            <option value="<?php echo $of['id']; ?>" <?php echo (isset($post['office_id']) && $post['office_id'] == $of['id']) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($of['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
-                                <div id="office_error" class="text-danger small mt-1" style="display:none;">Por favor selecciona una oficina.</div>
+                                <?php if (isset($fieldErrors['office_id'])): ?>
+                                    <div class="text-danger small mt-1"><?php echo htmlspecialchars($fieldErrors['office_id']); ?></div>
+                                <?php endif; ?>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-medium">Categor&iacute;a <span class="text-danger">*</span></label>
@@ -566,23 +642,28 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         </div>
 
                         <!-- Evidencias -->
-                        <div class="card bg-light border-0 mb-3" style="border: 2px dashed var(--line) !important;">
-                            <div class="card-body text-center p-3">
-                                <i class="bi bi-cloud-arrow-up-fill fs-2" style="color:var(--accent)"></i>
-                                <h6 class="fw-bold mt-2">A&ntilde;ade fotos o documentos</h6>
-                                <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                            onclick="document.getElementById('cameraInput').click()">
+                        <div class="card bg-light border-0 mb-2" id="dropZoneIndex" style="border: 1.5px dashed var(--line) !important; transition: all 0.2s ease; cursor: pointer;" onclick="if(event.target.tagName !== 'BUTTON' && !event.target.closest('button')) document.getElementById('fileInput').click();">
+                            <div class="card-body p-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-cloud-arrow-up-fill fs-4" style="color:var(--accent)"></i>
+                                    <div>
+                                        <span class="fw-semibold small d-block mb-0 text-dark">A&ntilde;ade o arrastra fotos / documentos</span>
+                                        <span class="small text-muted" style="font-size: 0.75rem;">Arrastra aqu&iacute; o usa los botones (M&aacute;x 5)</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 ms-auto dropzone-buttons">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 btn-upload-action"
+                                            onclick="event.stopPropagation(); document.getElementById('cameraInput').click()">
                                         <i class="bi bi-camera me-1"></i> Foto
                                     </button>
-                                    <button type="button" class="btn btn-sm text-white" style="background:var(--accent)"
-                                            onclick="document.getElementById('fileInput').click()">
+                                    <button type="button" class="btn btn-sm text-white py-1 px-2 btn-upload-action" style="background:var(--accent)"
+                                            onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
                                         <i class="bi bi-folder me-1"></i> Explorar
                                     </button>
                                 </div>
                                 <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
-                                <input type="file" id="fileInput" class="d-none" multiple>
-                                <input type="file" name="archivos[]" id="realInput" class="d-none" multiple>
+                                <input type="file" id="fileInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
+                                <input type="file" name="archivos[]" id="realInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
                             </div>
                         </div>
                         <ul class="list-group list-group-flush border rounded-3 overflow-hidden" id="filePreviewList" style="display:none;"></ul>
@@ -602,6 +683,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         const fileInput   = document.getElementById('fileInput');
                         const realInput   = document.getElementById('realInput');
                         const filePreviewList = document.getElementById('filePreviewList');
+                        const dropZoneIndex = document.getElementById('dropZoneIndex');
                         let selectedFiles = [];
                         const MAX_FILES = 5;
 
@@ -615,6 +697,29 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         }
                         if (cameraInput) cameraInput.addEventListener('change', e => { handleFiles(e.target.files); e.target.value=''; });
                         if (fileInput)   fileInput.addEventListener('change',   e => { handleFiles(e.target.files); e.target.value=''; });
+
+                        if (dropZoneIndex) {
+                            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+                                dropZoneIndex.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false);
+                            });
+                            ['dragenter', 'dragover'].forEach(evt => {
+                                dropZoneIndex.addEventListener(evt, () => {
+                                    dropZoneIndex.style.background = '#e7f1f4';
+                                    dropZoneIndex.style.borderColor = 'var(--accent)';
+                                }, false);
+                            });
+                            ['dragleave', 'drop'].forEach(evt => {
+                                dropZoneIndex.addEventListener(evt, () => {
+                                    dropZoneIndex.style.background = '';
+                                    dropZoneIndex.style.borderColor = 'var(--line)';
+                                }, false);
+                            });
+                            dropZoneIndex.addEventListener('drop', e => {
+                                if (e.dataTransfer && e.dataTransfer.files) {
+                                    handleFiles(e.dataTransfer.files);
+                                }
+                            }, false);
+                        }
 
                         function updateUI() {
                             filePreviewList.innerHTML = '';
@@ -632,7 +737,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                             realInput.files = dt.files;
                             filePreviewList.style.display = selectedFiles.length > 0 ? 'block' : 'none';
                         }
-                        function removeFile(index) { selectedFiles.splice(index,1); updateUI(); }
+                        window.removeFile = function(index) { selectedFiles.splice(index,1); updateUI(); };
 
                         const publicForm = document.getElementById('publicTicketForm');
                         if (publicForm) {
@@ -686,6 +791,12 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         </div>
                     </form>
 
+                    <?php if (!empty($pub_success)): ?>
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($pub_success); ?>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (!empty($pub_error)): ?>
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-circle me-2"></i><?php echo htmlspecialchars($pub_error); ?>
@@ -724,8 +835,14 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                     ?>
                                     <div class="msg <?php echo $msgClass; ?>">
                                         <div class="fw-semibold small mb-1">
-                                            <?php echo htmlspecialchars($msg['actor_name']); ?>
-                                            <?php if ($isAgent): ?><span class="text-muted fw-normal">&middot; Agente</span><?php endif; ?>
+                                            <?php 
+                                            if ($isAgent) {
+                                                echo 'Técnico';
+                                            } else {
+                                                echo htmlspecialchars($msg['actor_name']); 
+                                            }
+                                            ?>
+                                            <?php if ($isAgent): ?><span class="text-muted fw-normal">&middot; Soporte</span><?php endif; ?>
                                             <span class="text-muted fw-normal float-end" style="font-size:.7rem">
                                                 <?php echo date('d/m/Y H:i', strtotime($msg['changed_at'])); ?>
                                             </span>
@@ -745,6 +862,12 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                    class="btn btn-sm text-white" style="background:var(--accent)">
                                     <i class="bi bi-arrow-right-circle me-1"></i> Ver detalle completo
                                 </a>
+                                <?php if ($cs === 'Pendiente'): ?>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deletePublicModal">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php elseif ($pub_tab === 'consultar' && !isset($_GET['ticket_id'])): ?>
@@ -905,7 +1028,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                 <?php if (!empty($register_error)): ?>
                     <div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo htmlspecialchars($register_error); ?></div>
                 <?php endif; ?>
-                <form method="POST" novalidate>
+                <form method="POST" novalidate onsubmit="return validateRegisterPasswords(event);">
                     <input type="hidden" name="action" value="register">
                     <div class="row g-3">
                         <!-- Fila 1: Documento, Nombres y Apellidos -->
@@ -945,7 +1068,7 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         </div>
                         <div class="col-md-5 mb-2">
                             <label class="form-label fw-medium text-dark">Oficina <span class="text-danger">*</span></label>
-                            <select name="office_id" class="form-select <?php echo fieldClass('office_id', $fieldErrors); ?>" required>
+                            <select name="office_id" class="form-select searchable-select <?php echo fieldClass('office_id', $fieldErrors); ?>" required>
                                 <option value="">Seleccione una oficina...</option>
                                 <?php foreach($offices as $of): ?>
                                     <option value="<?php echo $of['id']; ?>" <?php echo ($register_val['office_id'] == $of['id']) ? 'selected' : ''; ?>>
@@ -959,12 +1082,12 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                         <!-- Fila 3: Contraseña -->
                         <div class="col-md-6 mb-3">
                             <label class="form-label fw-medium text-dark">Contraseña <span class="text-danger">*</span></label>
-                            <input type="password" name="password" class="form-control <?php echo fieldClass('password', $fieldErrors); ?>" required>
+                            <input type="password" name="password" id="reg_password" class="form-control <?php echo fieldClass('password', $fieldErrors); ?>" required>
                             <?php echo fieldMsg('password', $fieldErrors); ?>
                         </div>
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-medium text-dark">Confirmar Contraseña <span class="text-danger">*</span></label>
-                            <input type="password" name="password_confirm" class="form-control <?php echo fieldClass('password_confirm', $fieldErrors); ?>" required>
+                            <input type="password" name="password_confirm" id="reg_password_confirm" class="form-control <?php echo fieldClass('password_confirm', $fieldErrors); ?>" required>
                             <?php echo fieldMsg('password_confirm', $fieldErrors); ?>
                         </div>
                     </div>
@@ -1028,6 +1151,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    window.validateRegisterPasswords = function(e) {
+        const p1 = document.getElementById('reg_password') ? document.getElementById('reg_password').value : '';
+        const p2 = document.getElementById('reg_password_confirm') ? document.getElementById('reg_password_confirm').value : '';
+        if (!p1 || p1.trim() === '') {
+            e.preventDefault();
+            alert('⚠️ La contraseña no puede estar vacía.');
+            return false;
+        }
+        if (p1 !== p2) {
+            e.preventDefault();
+            alert('⚠️ Las contraseñas no coinciden. Por favor verifíquelas.');
+            return false;
+        }
+        return true;
+    };
+
     window.updateDniField = function() {
         const sel   = document.getElementById('doc_type');
         const input = document.getElementById('dni_input');
@@ -1035,23 +1174,109 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!sel || !input) return;
 
         if (sel.value === 'CE') {
-            input.maxLength   = 9;
-            input.pattern     = '[0-9]{9}';
+            input.removeAttribute('maxLength');
+            input.removeAttribute('pattern');
+            input.title = "Ingrese su Carnet de Extranjería";
             input.placeholder = 'Ej: 123456789';
             if (label) label.innerHTML = 'N° Carnet Ext. <span class="text-danger">*</span>';
         } else {
             input.maxLength   = 8;
             input.pattern     = '[0-9]{8}';
+            input.title = "Debe tener 8 dígitos numéricos";
             input.placeholder = 'Ej: 70000000';
             if (label) label.innerHTML = 'N° Documento <span class="text-danger">*</span>';
         }
     }
 
+    window.updatePubDniField = function() {
+        const sel = document.getElementById('pub_doc_type');
+        const input = document.getElementById('f_dni');
+        const label = document.getElementById('pub_dni_label');
+        if (!sel || !input) return;
+        if (sel.value === 'CE') {
+            input.removeAttribute('maxLength');
+            input.removeAttribute('pattern');
+            input.title = "Ingrese su Carnet de Extranjería";
+            if(label) label.innerHTML = 'Carnet Ext. <span class="text-danger">*</span>';
+        } else {
+            input.maxLength = 8;
+            input.pattern = '\\d{8}';
+            input.title = "Debe tener 8 dígitos numéricos";
+            if(label) label.innerHTML = 'DNI <span class="text-danger">*</span>';
+        }
+    };
+
     if(document.getElementById('doc_type')) {
         updateDniField();
     }
+
+    const btnSearchDni = document.getElementById('btnSearchPublicDni');
+    const inputDni = document.getElementById('f_dni');
+    const statusDni = document.getElementById('publicDniStatus');
+    if(btnSearchDni && inputDni) {
+        btnSearchDni.addEventListener('click', function() {
+            let dni = inputDni.value.trim();
+            if(dni.length !== 8) {
+                statusDni.innerHTML = '<span class="text-danger">El DNI debe tener 8 dígitos.</span>';
+                return;
+            }
+            statusDni.innerHTML = '<span class="text-info"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Buscando...</span>';
+            btnSearchDni.disabled = true;
+            
+            fetch('ajax_search_public_user.php?dni=' + dni)
+                .then(response => response.json())
+                .then(data => {
+                    btnSearchDni.disabled = false;
+                    if(data.success) {
+                        const u = data.data;
+                        document.querySelector('input[name="first_name"]').value = u.first_name || '';
+                        document.querySelector('input[name="last_name"]').value = u.last_name || '';
+                        document.querySelector('input[name="phone"]').value = u.phone || '';
+                        
+                        let selectOffice = document.querySelector('select[name="office_id"]');
+                        if(selectOffice && u.office_id) {
+                            selectOffice.value = u.office_id;
+                        }
+                        
+                        statusDni.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Datos cargados.</span>';
+                    } else {
+                        statusDni.innerHTML = '<span class="text-muted"><i class="bi bi-info-circle-fill me-1"></i>' + data.message + '</span>';
+                    }
+                })
+                .catch(error => {
+                    btnSearchDni.disabled = false;
+                    statusDni.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Error de conexión.</span>';
+                });
+        });
+    }
 });
 </script>
+<?php endif; ?>
+
+<?php if ($pub_result && $pub_result['current_status'] === 'Pendiente'): ?>
+<!-- Modal de confirmación de eliminación (Consultar Ticket Público) -->
+<div class="modal fade" id="deletePublicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white bg-danger border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Cancelación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-start py-4 text-dark fs-6" style="white-space: normal;">
+                ¿Estás seguro de que deseas cancelar y eliminar este ticket permanentemente? Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="delete_public_ticket">
+                    <input type="hidden" name="ticket_id" value="<?php echo $pub_result['id']; ?>">
+                    <input type="hidden" name="dni" value="<?php echo htmlspecialchars($pub_result['dni']); ?>">
+                    <button type="submit" class="btn btn-danger fw-bold">Sí, eliminar ticket</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

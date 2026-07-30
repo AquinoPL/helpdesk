@@ -4,6 +4,7 @@ require '../config/database.php';
 
 restrict_access(['admin']);
 
+ob_start(); // Buffer output to allow setting headers later for downloads
 require 'includes/admin_header.php';
 
 // Obtener técnicos para el filtro
@@ -126,72 +127,78 @@ $stmtTickets = $conn->prepare("SELECT
 $stmtTickets->execute($params);
 $tickets = $stmtTickets->fetchAll(PDO::FETCH_ASSOC);
 
-// Exportar CSV Logic
-if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+// Exportar JSON Logic para Excel en el cliente
+if (isset($_GET['export']) && $_GET['export'] === 'json') {
     ob_end_clean();
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename=reporte_tickets_' . date('Y-m-d') . '.csv');
-    $output = fopen('php://output', 'w');
-    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+    header('Content-Type: application/json; charset=utf-8');
     
-    // Columnas disponibles (Clave => Nombre a mostrar en CSV)
+    // Columnas disponibles
     $available_columns = [
-        'id' => 'ID',
-        'usuario' => 'Usuario',
-        'dni' => 'DNI Usuario',
-        'telefono' => 'Teléfono',
-        'oficina' => 'Oficina',
-        'tecnico' => 'Técnico Asignado',
-        'categoria' => 'Categoría',
-        'asunto' => 'Asunto',
-        'descripcion' => 'Descripción del Problema',
-        'comentario' => 'Comentario Final del Técnico',
-        'estado' => 'Estado Actual',
-        'f_creacion' => 'Fecha Creación',
-        'f_atencion' => 'Fecha Atención',
-        'f_cierre' => 'Fecha Cierre',
-        'calificacion' => 'Calificación (Estrellas)',
-        'historial' => 'Historial de Estados'
+        'id' => 'ID', 'usuario' => 'Usuario', 'dni' => 'DNI Usuario', 'telefono' => 'Teléfono',
+        'oficina' => 'Oficina', 'tecnico' => 'Técnico Asignado', 'categoria' => 'Categoría',
+        'asunto' => 'Asunto', 'descripcion' => 'Descripción del Problema', 'comentario' => 'Comentario Final del Técnico',
+        'estado' => 'Estado Actual', 'f_creacion' => 'Fecha Creación', 'f_atencion' => 'Fecha Atención',
+        'f_cierre' => 'Fecha Cierre', 'calificacion' => 'Calificación', 'historial' => 'Historial de Estados'
     ];
     
-    // Leer columnas seleccionadas o usar todas por defecto si no vienen
     $selected_cols = isset($_GET['cols']) ? explode(',', $_GET['cols']) : array_keys($available_columns);
+    $export_data = [];
     
-    // Construir headers dinámicos
-    $headers = [];
-    foreach ($selected_cols as $col_key) {
-        if (isset($available_columns[$col_key])) {
-            $headers[] = $available_columns[$col_key];
-        }
-    }
-    fputcsv($output, $headers, ';');
-    
-    // Construir filas dinámicas
     foreach ($tickets as $t) {
         $row = [];
         foreach ($selected_cols as $col_key) {
+            $val = '';
             switch ($col_key) {
-                case 'id': $row[] = $t['id']; break;
-                case 'usuario': $row[] = $t['user_fname'] . ' ' . $t['user_lname']; break;
-                case 'dni': $row[] = $t['user_dni']; break;
-                case 'telefono': $row[] = $t['user_phone']; break;
-                case 'oficina': $row[] = $t['office_name'] ?? 'N/A'; break;
-                case 'tecnico': $row[] = $t['tech_fname'] ? $t['tech_fname'] . ' ' . $t['tech_lname'] : 'No Asignado'; break;
-                case 'categoria': $row[] = $t['category']; break;
-                case 'asunto': $row[] = $t['title']; break;
-                case 'descripcion': $row[] = $t['description']; break;
-                case 'comentario': $row[] = $t['tech_comment']; break;
-                case 'estado': $row[] = $t['current_status']; break;
-                case 'f_creacion': $row[] = $t['created_at']; break;
-                case 'f_atencion': $row[] = $t['attended_at'] ?? 'N/A'; break;
-                case 'f_cierre': $row[] = $t['closed_at'] ?? 'N/A'; break;
-                case 'calificacion': $row[] = $t['rating'] ? $t['rating'] . ' Estrellas' : 'N/A'; break;
-                case 'historial': $row[] = $t['history_str']; break;
+                case 'id': $val = $t['id']; break;
+                case 'usuario': $val = trim($t['user_fname'] . ' ' . $t['user_lname']); break;
+                case 'dni': $val = $t['user_dni']; break;
+                case 'telefono': $val = $t['user_phone']; break;
+                case 'oficina': $val = $t['office_name'] ?? 'N/A'; break;
+                case 'tecnico': $val = $t['tech_fname'] ? trim($t['tech_fname'] . ' ' . $t['tech_lname']) : 'No Asignado'; break;
+                case 'categoria': $val = $t['category']; break;
+                case 'asunto': $val = $t['title']; break;
+                case 'descripcion': $val = $t['description']; break;
+                case 'comentario': $val = $t['tech_comment']; break;
+                case 'estado': $val = $t['current_status']; break;
+                case 'f_creacion': $val = $t['created_at']; break;
+                case 'f_atencion': $val = $t['attended_at'] ?? 'N/A'; break;
+                case 'f_cierre': $val = $t['closed_at'] ?? 'N/A'; break;
+                case 'calificacion': $val = $t['rating'] ? $t['rating'] . ' Estrellas' : 'N/A'; break;
+                case 'historial': $val = $t['history_str']; break;
+            }
+            $row[$col_key] = $val;
+        }
+        $export_data[] = $row;
+    }
+    
+    $period_label = 'Todos';
+    if ($periodo === 'semana') $period_label = 'Última Semana';
+    elseif ($periodo === 'mes') {
+        $partes = explode('-', $mes_seleccionado);
+        $period_label = 'Mes: ' . (isset($meses_es[$partes[1]]) ? $meses_es[$partes[1]] . ' ' . $partes[0] : $mes_seleccionado);
+    } elseif ($periodo === 'custom') {
+        $period_label = 'Del ' . $fecha_inicio . ' al ' . $fecha_fin;
+    }
+
+    $tech_label = 'Todos los Técnicos';
+    if ($tech_id) {
+        foreach ($technicians as $tc) {
+            if ($tc['id'] == $tech_id) {
+                $tech_label = $tc['first_name'] . ' ' . $tc['last_name'];
+                break;
             }
         }
-        fputcsv($output, $row, ';');
     }
-    fclose($output);
+    
+    echo json_encode([
+        'columns' => $available_columns,
+        'selected' => $selected_cols,
+        'data' => $export_data,
+        'filters' => [
+            'period' => $period_label,
+            'technician' => $tech_label
+        ]
+    ], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE);
     exit();
 }
 ?>
@@ -254,22 +261,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     </div>
 </div>
 
-<div class="d-flex justify-content-end mb-3 gap-2">
-    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#exportModal">
-        <i class="bi bi-filetype-csv me-1"></i> Exportar CSV
-    </button>
-</div>
 
-<!-- Modal para Exportación CSV -->
+<!-- Modal para Exportación -->
 <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-bottom-0 pb-0">
-        <h5 class="modal-title fw-bold text-success" id="exportModalLabel"><i class="bi bi-filetype-csv me-2"></i>Exportar Reporte a CSV</h5>
+        <h5 class="modal-title fw-bold text-primary" id="exportModalLabel"><i class="bi bi-box-arrow-up me-2"></i>Exportar Reporte</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small mb-3">Selecciona las columnas que deseas incluir en tu archivo descargable.</p>
+        <p class="text-muted small mb-3">Selecciona las columnas que deseas incluir y elige el formato de descarga.</p>
         
         <div class="form-check mb-3 pb-2 border-bottom">
           <input class="form-check-input" type="checkbox" id="selectAllCols" checked>
@@ -304,7 +306,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
       </div>
       <div class="modal-footer border-top-0 pt-0">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-success" onclick="exportCSV()"><i class="bi bi-download me-1"></i> Descargar</button>
+        <button type="button" class="btn btn-danger" onclick="exportPDF()"><i class="bi bi-file-earmark-pdf me-1"></i> Descargar PDF</button>
+        <button type="button" class="btn btn-success" onclick="exportExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Descargar Excel</button>
       </div>
     </div>
   </div>
@@ -418,8 +421,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     <!-- FIN NUEVOS REPORTES -->
 
     <div class="card card-plain mb-4">
-        <div class="card-header bg-transparent border-0 pt-4 pb-0 px-4">
+        <div class="card-header bg-transparent border-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold mb-0 text-dark">Detalle de Tickets</h6>
+            <button type="button" class="btn btn-sm btn-primary text-white shadow-sm" data-bs-toggle="modal" data-bs-target="#exportModal">
+                <i class="bi bi-box-arrow-up me-1"></i> Exportar Reporte
+            </button>
         </div>
         <div class="card-body px-4 pt-3 pb-4">
             <div class="table-responsive">
@@ -540,9 +546,15 @@ colChks.forEach(chk => {
         selectAllChk.indeterminate = !allChecked && !noneChecked;
     });
 });
+</script>
 
-function exportCSV() {
-    // Recolectar columnas seleccionadas
+<!-- Inyectar librerías necesarias -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+async function exportExcel() {
     const selected = Array.from(colChks).filter(c => c.checked).map(c => c.value);
     
     if (selected.length === 0) {
@@ -553,14 +565,216 @@ function exportCSV() {
     const form = document.getElementById('filterForm');
     const url = new URL(window.location.href);
     url.search = new URLSearchParams(new FormData(form)).toString();
-    url.searchParams.append('export', 'csv');
+    url.searchParams.append('export', 'json');
     url.searchParams.append('cols', selected.join(','));
     
-    // Cerrar modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-    if (modal) modal.hide();
+    const btn = document.querySelector('button[onclick="exportExcel()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i> Generando...';
+    btn.disabled = true;
 
-    window.location.href = url.toString();
+    try {
+        const response = await fetch(url.toString());
+        const json = await response.json();
+        
+        // Crear un nuevo libro de trabajo
+        const wb = XLSX.utils.book_new();
+        
+        // Estilos
+        const headerStyle = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+            fill: { fgColor: { rgb: "0C2232" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+                top: {style: 'thin', color: {auto: 1}},
+                bottom: {style: 'thin', color: {auto: 1}},
+                left: {style: 'thin', color: {auto: 1}},
+                right: {style: 'thin', color: {auto: 1}}
+            }
+        };
+        const titleStyle = {
+            font: { bold: true, color: { rgb: "000000" }, sz: 14 },
+            alignment: { horizontal: "center", vertical: "center" }
+        };
+        const filterStyle = {
+            font: { bold: true, color: { rgb: "000000" }, sz: 11 }
+        };
+        
+        // Inicializar datos con el Título
+        let ws_data = [];
+        let row_title = new Array(json.selected.length).fill("");
+        row_title[0] = "REPORTE DE TICKETS";
+        ws_data.push(row_title);
+        
+        // Fila de Fecha
+        let row_date = new Array(json.selected.length).fill("");
+        row_date[0] = "Generado el: " + new Date().toLocaleDateString();
+        ws_data.push(row_date);
+
+        // Fila de Período
+        let row_period = new Array(json.selected.length).fill("");
+        row_period[0] = "Período: " + (json.filters && json.filters.period ? json.filters.period : "Todos");
+        ws_data.push(row_period);
+
+        // Fila de Técnico
+        let row_tech = new Array(json.selected.length).fill("");
+        row_tech[0] = "Técnico: " + (json.filters && json.filters.technician ? json.filters.technician : "Todos los Técnicos");
+        ws_data.push(row_tech);
+
+        // Fila vacía para separación
+        ws_data.push(new Array(json.selected.length).fill(""));
+        
+        // Fila de Cabeceras (R=5)
+        let headers = [];
+        json.selected.forEach(col => {
+            headers.push(json.columns[col]);
+        });
+        ws_data.push(headers);
+        
+        // Filas de Datos (R>5)
+        json.data.forEach(item => {
+            let row = [];
+            json.selected.forEach(col => {
+                row.push(item[col] !== null ? item[col] : '');
+            });
+            ws_data.push(row);
+        });
+        
+        // Crear hoja
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        
+        // Aplicar estilos
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        // Merge para el título y los filtros para que ocupen al menos 3 columnas
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: json.selected.length - 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: Math.max(2, json.selected.length - 1) } },
+            { s: { r: 2, c: 0 }, e: { r: 2, c: Math.max(2, json.selected.length - 1) } },
+            { s: { r: 3, c: 0 }, e: { r: 3, c: Math.max(2, json.selected.length - 1) } }
+        ];
+        
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cellAddress = {c:C, r:R};
+                const cellRef = XLSX.utils.encode_cell(cellAddress);
+                if(!ws[cellRef]) continue;
+                
+                if (R === 0) {
+                    ws[cellRef].s = titleStyle;
+                } else if (R >= 1 && R <= 3) {
+                    ws[cellRef].s = filterStyle;
+                } else if (R === 5) {
+                    ws[cellRef].s = headerStyle;
+                } else if (R > 5) {
+                    // Celdas normales con borde
+                    ws[cellRef].s = {
+                        border: {
+                            top: {style: 'thin', color: {auto: 1}},
+                            bottom: {style: 'thin', color: {auto: 1}},
+                            left: {style: 'thin', color: {auto: 1}},
+                            right: {style: 'thin', color: {auto: 1}}
+                        }
+                    };
+                    
+                    // Colorear estados
+                    if (json.selected[C] === 'estado') {
+                        let val = ws[cellRef].v;
+                        if (val === 'Pendiente') ws[cellRef].s.font = { color: {rgb: "DC3545"}, bold: true };
+                        if (val === 'Atendido') ws[cellRef].s.font = { color: {rgb: "198754"}, bold: true };
+                    }
+                }
+            }
+        }
+        
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, 'reporte_tickets_' + new Date().toISOString().split('T')[0] + '.xlsx');
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+        if (modal) modal.hide();
+    } catch(err) {
+        console.error(err);
+        alert("Ocurrió un error al generar el Excel: " + err.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function exportPDF() {
+    const selected = Array.from(colChks).filter(c => c.checked).map(c => c.value);
+    
+    if (selected.length === 0) {
+        alert("Por favor selecciona al menos una columna para exportar.");
+        return;
+    }
+
+    const form = document.getElementById('filterForm');
+    const url = new URL(window.location.href);
+    url.search = new URLSearchParams(new FormData(form)).toString();
+    url.searchParams.append('export', 'json');
+    url.searchParams.append('cols', selected.join(','));
+    
+    const btn = document.querySelector('button[onclick="exportPDF()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i> Generando...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(url.toString());
+        const json = await response.json();
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+        
+        // Agregar Título
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text("REPORTE DE TICKETS", 14, 15);
+        
+        // Agregar Filtros
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Generado el: " + new Date().toLocaleDateString(), 14, 23);
+        doc.text("Período: " + (json.filters && json.filters.period ? json.filters.period : "Todos"), 14, 28);
+        doc.text("Técnico: " + (json.filters && json.filters.technician ? json.filters.technician : "Todos los Técnicos"), 14, 33);
+        
+        // Preparar Datos para la Tabla
+        let headers = [];
+        json.selected.forEach(col => {
+            headers.push(json.columns[col]);
+        });
+        
+        let data = [];
+        json.data.forEach(item => {
+            let row = [];
+            json.selected.forEach(col => {
+                row.push(item[col] !== null ? item[col] : '');
+            });
+            data.push(row);
+        });
+        
+        // Generar Tabla con AutoTable
+        doc.autoTable({
+            startY: 38,
+            head: [headers],
+            body: data,
+            theme: 'grid',
+            headStyles: { fillColor: [12, 34, 50], fontSize: 8 },
+            bodyStyles: { fontSize: 8 },
+            styles: { overflow: 'linebreak', cellPadding: 2 }
+        });
+        
+        doc.save('reporte_tickets_' + new Date().toISOString().split('T')[0] + '.pdf');
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+        if (modal) modal.hide();
+    } catch(err) {
+        console.error(err);
+        alert("Ocurrió un error al generar el PDF: " + err.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 </script>
 

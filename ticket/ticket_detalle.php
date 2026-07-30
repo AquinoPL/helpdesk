@@ -62,6 +62,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             exit();
         }
 
+        if ($_POST['action'] == 'eliminar_propio' && $user['role'] == 'usuario') {
+            $stmtStatus = $conn->prepare("SELECT COALESCE(status, 'Pendiente') FROM tickets WHERE id = ?");
+            $stmtStatus->execute([$ticket_id]);
+            $fetched_status = $stmtStatus->fetchColumn();
+
+            if ($fetched_status === 'Pendiente') {
+                $conn->beginTransaction();
+                $conn->prepare("DELETE FROM ticket_files   WHERE ticket_id = ?")->execute([$ticket_id]);
+                $conn->prepare("DELETE FROM ticket_history WHERE ticket_id = ?")->execute([$ticket_id]);
+                $conn->prepare("DELETE FROM tickets        WHERE id = ? AND user_id = ?")->execute([$ticket_id, $user['id']]);
+                $conn->commit();
+                header("Location: ../index.php");
+                exit();
+            } else {
+                $error = "No se puede eliminar porque ya no está Pendiente.";
+            }
+        }
+
         if ($_POST['action'] == 'rechazar_admin' && $user['role'] == 'admin') {
             $comment = trim($_POST['comment']);
             if(empty($comment)) {
@@ -69,8 +87,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             } else {
                 // SQL directo: actualizar estado + registrar en historial
                 $conn->beginTransaction();
-                $stmtRej = $conn->prepare("UPDATE tickets SET status = 'Rechazado', technician_id = NULL WHERE id = ?");
-                $stmtRej->execute([$ticket_id]);
+                $stmtRej = $conn->prepare("UPDATE tickets SET status = 'Rechazado', technician_id = NULL, tech_comment = ? WHERE id = ?");
+                $stmtRej->execute([$comment, $ticket_id]);
                 $stmtHist = $conn->prepare("INSERT INTO ticket_history (ticket_id, changed_by, status, comment) VALUES (?, ?, 'Rechazado', ?)");
                 $stmtHist->execute([$ticket_id, $user['id'], $comment]);
                 $conn->commit();
@@ -212,39 +230,19 @@ if ($user['role'] == 'admin') {
             <a href="../admin/editar_ticket.php?id=<?php echo $ticket_id; ?>" class="btn btn-outline-primary fw-bold px-3 shadow-sm rounded-pill">
                 <i class="bi bi-pencil me-1"></i> Editar
             </a>
-            <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill"
-                    onclick="const p=document.getElementById('delete-confirm-panel'); p.style.display=(p.style.display==='none'?'block':'none'); p.scrollIntoView({behavior:'smooth',block:'center'});">
+            <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModalAdmin">
                 <i class="bi bi-trash me-1"></i> Eliminar
+            </button>
+        <?php elseif ($user['role'] == 'usuario' && $current_status === 'Pendiente' && !$is_impersonating): ?>
+            <button type="button" class="btn btn-outline-danger fw-bold px-3 shadow-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteModalUser">
+                <i class="bi bi-trash me-1"></i> Cancelar Ticket
             </button>
         <?php endif; ?>
         <span id="ticket-status-badge" class="badge status-badge <?php echo $badgeClass; ?> fs-5 py-2 px-3 shadow-sm"><?php echo htmlspecialchars($current_status); ?></span>
     </div>
 </div>
 
-<?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
-<!-- Panel de confirmación de eliminación (oculto por defecto) -->
-<div id="delete-confirm-panel" class="alert alert-danger border-0 shadow-sm mb-3 fade-in" style="display:none;">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-        <div>
-            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-            <strong>¿Eliminar el ticket #<?php echo $ticket_id; ?> permanentemente?</strong>
-            <div class="small mt-1 text-danger-emphasis">Esta acción no se puede deshacer. Se eliminarán el ticket, su historial y archivos adjuntos.</div>
-        </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm"
-                    onclick="document.getElementById('delete-confirm-panel').style.display='none'">
-                Cancelar
-            </button>
-            <form method="POST" style="display:inline;">
-                <input type="hidden" name="action" value="eliminar_ticket">
-                <button type="submit" class="btn btn-danger btn-sm fw-bold">
-                    <i class="bi bi-trash-fill me-1"></i> Sí, eliminar
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
+
 
 
 <?php if ($success): ?>
@@ -319,7 +317,15 @@ if ($user['role'] == 'admin') {
                         <?php if($ticket['email'] || $ticket['phone']): ?>
                             <div class="mt-2 small">
                                 <?php if($ticket['email']): ?><span class="text-muted d-block"><i class="bi bi-envelope me-1"></i> <?php echo htmlspecialchars($ticket['email']); ?></span><?php endif; ?>
-                                <?php if($ticket['phone']): ?><span class="text-muted d-block"><i class="bi bi-telephone me-1"></i> <?php echo htmlspecialchars($ticket['phone']); ?></span><?php endif; ?>
+                                <?php if($ticket['phone']): ?>
+                                    <span class="text-muted d-block">
+                                        <i class="bi bi-telephone me-1"></i> <?php echo htmlspecialchars($ticket['phone']); ?>
+                                        <?php if(preg_match('/^[0-9]{9}$/', trim($ticket['phone'])) && $user['role'] !== 'usuario'): ?>
+                                            <a href="tel:<?php echo htmlspecialchars(trim($ticket['phone'])); ?>" class="btn btn-sm btn-success ms-2 py-1 px-3" style="font-size: 1rem;" title="Llamar"><i class="bi bi-telephone-outbound"></i></a>
+                                            <a href="https://wa.me/51<?php echo htmlspecialchars(trim($ticket['phone'])); ?>" target="_blank" class="btn btn-sm ms-1 py-1 px-3" style="font-size: 1rem; background-color: #25D366; color: white; border: none;" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                                        <?php endif; ?>
+                                    </span>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -627,8 +633,17 @@ if ($user['role'] == 'admin') {
                 <div class="card-body">
                     <ul class="list-group list-group-flush rounded-3 border">
                         <?php foreach($asignaciones as $asig): ?>
-                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
-                            <span><?php echo htmlspecialchars($asig['first_name'] . ' ' . $asig['last_name']); ?></span>
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="d-block fw-medium text-dark"><?php echo htmlspecialchars($asig['first_name'] . ' ' . $asig['last_name']); ?></span>
+                                <?php if($user['role'] == 'usuario' && !empty($asig['tech_phone']) && preg_match('/^[0-9]{9}$/', trim($asig['tech_phone']))): ?>
+                                    <div class="mt-2">
+                                        <span class="small text-muted me-2"><i class="bi bi-telephone me-1"></i> <?php echo htmlspecialchars($asig['tech_phone']); ?></span>
+                                        <a href="tel:<?php echo htmlspecialchars(trim($asig['tech_phone'])); ?>" class="btn btn-sm btn-success py-1 px-3" style="font-size: 0.9rem;" title="Llamar al Técnico"><i class="bi bi-telephone-outbound"></i></a>
+                                        <a href="https://wa.me/51<?php echo htmlspecialchars(trim($asig['tech_phone'])); ?>" target="_blank" class="btn btn-sm ms-1 py-1 px-3" style="font-size: 0.9rem; background-color: #25D366; color: white; border: none;" title="WhatsApp al Técnico"><i class="bi bi-whatsapp"></i></a>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                             <span class="badge border border-secondary text-secondary rounded-pill"><?php echo htmlspecialchars($asig['status']); ?></span>
                         </li>
                         <?php endforeach; ?>
@@ -903,12 +918,58 @@ if ($user['role'] == 'admin') {
     setInterval(pollTicketData, 10000);
 </script>
 
+<?php if ($user['role'] == 'admin' && !$is_impersonating): ?>
+<!-- Modal de confirmación de eliminación (Admin) -->
+<div class="modal fade" id="deleteModalAdmin" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white bg-danger border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-start py-4 text-dark fs-6" style="white-space: normal;">
+                ¿Eliminar el ticket #<?php echo $ticket_id; ?> permanentemente?
+                <div class="small mt-2 text-danger-emphasis">Esta acción no se puede deshacer. Se eliminarán el ticket, su historial y archivos adjuntos.</div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="eliminar_ticket">
+                    <button type="submit" class="btn btn-danger fw-bold">Sí, eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php elseif ($user['role'] == 'usuario' && $current_status === 'Pendiente' && !$is_impersonating): ?>
+<!-- Modal de confirmación de eliminación (Usuario) -->
+<div class="modal fade" id="deleteModalUser" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow text-start">
+            <div class="modal-header text-white bg-danger border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Cancelación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4 text-dark fs-6" style="white-space: normal;">
+                ¿Cancelar y eliminar el ticket #<?php echo $ticket_id; ?> permanentemente?
+                <div class="small mt-2 text-danger-emphasis">Esta acción no se puede deshacer.</div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="eliminar_propio">
+                    <button type="submit" class="btn btn-danger fw-bold">Sí, cancelar ticket</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php 
 if ($user['role'] == 'admin') {
-    require 'admin/includes/admin_footer.php';
+    require '../admin/includes/admin_footer.php';
 } else {
     require '../includes/footer.php'; 
 }
 ?>
-
-

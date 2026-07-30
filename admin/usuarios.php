@@ -16,17 +16,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $email = trim($_POST['email']);
         $phone = trim($_POST['phone']);
         $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
-        $password = $_POST['password'];
+        $password = $_POST['password'] ?? '';
+        $password_confirm = $_POST['password_confirm'] ?? '';
         
-        try {
-            $stmt = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, email, phone, office_id, password, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)");
-            $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $password]);
-            $success = "Usuario creado correctamente.";
-        } catch(PDOException $e) {
-            if ($e->getCode() == 23505) {
-                $error = "Error: El DNI o Correo ya está registrado.";
+        if (empty($password)) {
+            $error = "Error: La contraseña no puede estar vacía.";
+        } elseif ($password !== $password_confirm) {
+            $error = "Error: Las contraseñas no coinciden.";
+        } else {
+            // Check DNI
+            $check = $conn->prepare("SELECT id FROM usuarios WHERE dni = ?");
+            $check->execute([$dni]);
+            if ($check->fetch()) {
+                $error = "Advertencia: Ya existe un usuario registrado con el DNI $dni.";
             } else {
-                $error = "Error al crear: " . $e->getMessage();
+                try {
+                    $stmt = $conn->prepare("INSERT INTO usuarios (dni, first_name, last_name, email, phone, office_id, password, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)");
+                    $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $password]);
+                    $success = "Usuario creado correctamente.";
+                } catch(PDOException $e) {
+                    if ($e->getCode() == 23000) {
+                        $error = "Advertencia: El DNI o Correo ya está registrado.";
+                    } else {
+                        $error = "Error al crear: " . $e->getMessage();
+                    }
+                }
             }
         }
     } elseif ($action == 'edit') {
@@ -38,22 +52,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $phone = trim($_POST['phone']);
         $office_id = !empty($_POST['office_id']) ? $_POST['office_id'] : null;
         $is_active = isset($_POST['is_active']) ? 1 : 0;
-        $password = $_POST['password'];
+        $password = $_POST['password'] ?? '';
+        $password_confirm = $_POST['password_confirm'] ?? '';
         
-        try {
-            if (!empty($password)) {
-                $stmt = $conn->prepare("UPDATE usuarios SET dni=?, first_name=?, last_name=?, email=?, phone=?, office_id=?, is_active=?, password=? WHERE id=?");
-                $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $is_active, $password, $id]);
-            } else {
-                $stmt = $conn->prepare("UPDATE usuarios SET dni=?, first_name=?, last_name=?, email=?, phone=?, office_id=?, is_active=? WHERE id=?");
-                $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $is_active, $id]);
-            }
-            $success = "Usuario actualizado correctamente.";
-        } catch(PDOException $e) {
-            if ($e->getCode() == 23505) {
-                $error = "Error: El DNI o Correo ingresado pertenece a otro registro.";
-            } else {
-                $error = "Error al actualizar: " . $e->getMessage();
+        if (!empty($password) && $password !== $password_confirm) {
+            $error = "Error: Las contraseñas ingresadas no coinciden.";
+        } else {
+            try {
+                if (!empty($password)) {
+                    $stmt = $conn->prepare("UPDATE usuarios SET dni=?, first_name=?, last_name=?, email=?, phone=?, office_id=?, is_active=?, password=? WHERE id=?");
+                    $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $is_active, $password, $id]);
+                } else {
+                    $stmt = $conn->prepare("UPDATE usuarios SET dni=?, first_name=?, last_name=?, email=?, phone=?, office_id=?, is_active=? WHERE id=?");
+                    $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $is_active, $id]);
+                }
+                $success = "Usuario actualizado correctamente.";
+            } catch(PDOException $e) {
+                if ($e->getCode() == 23000) {
+                    $error = "Advertencia: El DNI o Correo ya está registrado por otro usuario.";
+                } else {
+                    $error = "Error al actualizar: " . $e->getMessage();
+                }
             }
         }
     } elseif ($action == 'delete') {
@@ -68,15 +87,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif ($action == 'hard_delete') {
         $id = $_POST['id'];
         try {
+            $conn->beginTransaction();
+            
+            // Delete files for this user's tickets
+            $conn->prepare("DELETE FROM ticket_files WHERE ticket_id IN (SELECT id FROM tickets WHERE user_id=?)")->execute([$id]);
+            
+            // Delete history for this user's tickets
+            $conn->prepare("DELETE FROM ticket_history WHERE ticket_id IN (SELECT id FROM tickets WHERE user_id=?)")->execute([$id]);
+            // Delete history where this user was the changer
+            $conn->prepare("DELETE FROM ticket_history WHERE changed_by=?")->execute([$id]);
+            
+            // Delete the tickets
+            $conn->prepare("DELETE FROM tickets WHERE user_id=?")->execute([$id]);
+            
+            // Finally delete the user
             $stmt = $conn->prepare("DELETE FROM usuarios WHERE id=?");
             $stmt->execute([$id]);
-            $success = "Usuario eliminado permanentemente.";
+            
+            $conn->commit();
+            $success = "Usuario y todos sus tickets eliminados permanentemente.";
         } catch(PDOException $e) {
-            if ($e->getCode() == 23000 || $e->getCode() == '23000') {
-                $error = "No se puede eliminar el usuario porque tiene tickets asociados.";
-            } else {
-                $error = "Error al eliminar: " . $e->getMessage();
-            }
+            $conn->rollBack();
+            $error = "Error al eliminar: " . $e->getMessage();
         }
     }
 }
@@ -85,7 +117,7 @@ $stmt = $conn->query("
     SELECT u.*, o.name as office_name 
     FROM usuarios u 
     LEFT JOIN oficina o ON u.office_id = o.id 
-    WHERE u.is_active = TRUE
+    WHERE u.is_active = TRUE AND u.is_registered = 1
     ORDER BY u.id DESC
 ");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -94,7 +126,7 @@ $stmt_inactive = $conn->query("
     SELECT u.*, o.name as office_name 
     FROM usuarios u 
     LEFT JOIN oficina o ON u.office_id = o.id 
-    WHERE u.is_active = FALSE
+    WHERE u.is_active = FALSE AND u.is_registered = 1
     ORDER BY u.id DESC
 ");
 $users_inactive = $stmt_inactive->fetchAll(PDO::FETCH_ASSOC);
@@ -273,7 +305,7 @@ require 'includes/admin_header.php';
         <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Registrar Nuevo Usuario</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST">
+      <form method="POST" onsubmit="return validateUserCreate(event);">
           <div class="modal-body">
               <input type="hidden" name="action" value="create">
               <div class="row g-3">
@@ -283,7 +315,7 @@ require 'includes/admin_header.php';
                   </div>
                   <div class="col-md-6">
                       <label class="form-label fw-bold">Oficina *</label>
-                      <select name="office_id" class="form-select" required>
+                      <select name="office_id" class="form-select searchable-select" required>
                           <option value="">Seleccione...</option>
                           <?php foreach($offices as $of): ?>
                               <option value="<?php echo $of['id']; ?>"><?php echo htmlspecialchars($of['name']); ?></option>
@@ -306,9 +338,13 @@ require 'includes/admin_header.php';
                       <label class="form-label fw-bold">Correo (Opcional)</label>
                       <input type="email" class="form-control" name="email">
                   </div>
-                  <div class="col-12 mt-4">
-                      <label class="form-label fw-bold text-primary">Contraseña Inicial *</label>
-                      <input type="password" class="form-control" name="password" required>
+                  <div class="col-md-6 mt-3">
+                      <label class="form-label fw-bold text-primary">Contraseña *</label>
+                      <input type="password" class="form-control" name="password" id="create_password" required placeholder="Escriba la contraseña">
+                  </div>
+                  <div class="col-md-6 mt-3">
+                      <label class="form-label fw-bold text-primary">Confirmar Contraseña *</label>
+                      <input type="password" class="form-control" name="password_confirm" id="create_password_confirm" required placeholder="Repita la contraseña">
                   </div>
               </div>
           </div>
@@ -329,7 +365,7 @@ require 'includes/admin_header.php';
         <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar Información de Usuario</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="POST" onsubmit="confirmAction(event, this, 'modificar y actualizar');">
+      <form method="POST" onsubmit="return validateUserEdit(event);">
           <div class="modal-body">
               <input type="hidden" name="action" value="edit">
               <input type="hidden" name="id" id="edit_id">
@@ -340,7 +376,7 @@ require 'includes/admin_header.php';
                   </div>
                   <div class="col-md-6">
                       <label class="form-label fw-bold">Oficina *</label>
-                      <select name="office_id" id="edit_office_id" class="form-select" required>
+                      <select name="office_id" id="edit_office_id" class="form-select searchable-select" required>
                           <option value="">Seleccione...</option>
                           <?php foreach($offices as $of): ?>
                               <option value="<?php echo $of['id']; ?>"><?php echo htmlspecialchars($of['name']); ?></option>
@@ -363,15 +399,19 @@ require 'includes/admin_header.php';
                       <label class="form-label fw-bold">Correo (Opcional)</label>
                       <input type="email" class="form-control" name="email" id="edit_email">
                   </div>
-                  <div class="col-md-6 mt-4">
+                  <div class="col-md-4 mt-3">
                       <div class="form-check form-switch mt-3">
                           <input class="form-check-input" type="checkbox" name="is_active" id="edit_is_active">
                           <label class="form-check-label fw-bold" for="edit_is_active">Cuenta Activa</label>
                       </div>
                   </div>
-                  <div class="col-md-6 mt-4">
+                  <div class="col-md-4 mt-3">
                       <label class="form-label fw-bold text-danger">Reemplazar Contraseña</label>
-                      <input type="password" class="form-control" name="password" placeholder="Rellenar solo si se desea resetear">
+                      <input type="password" class="form-control" name="password" id="edit_password" placeholder="Solo si desea resetear">
+                  </div>
+                  <div class="col-md-4 mt-3">
+                      <label class="form-label fw-bold text-danger">Confirmar Reemplazo</label>
+                      <input type="password" class="form-control" name="password_confirm" id="edit_password_confirm" placeholder="Repita la contraseña">
                   </div>
               </div>
           </div>
@@ -385,6 +425,35 @@ require 'includes/admin_header.php';
 </div>
 
 <script>
+function validateUserCreate(e) {
+    const pass = document.getElementById('create_password').value;
+    const confirm = document.getElementById('create_password_confirm').value;
+    if (!pass || pass.trim() === '') {
+        e.preventDefault();
+        alert('⚠️ La contraseña no puede estar vacía.');
+        return false;
+    }
+    if (pass !== confirm) {
+        e.preventDefault();
+        alert('⚠️ Las contraseñas no coinciden. Por favor verifíquelas.');
+        return false;
+    }
+    return true;
+}
+
+function validateUserEdit(e) {
+    const pass = document.getElementById('edit_password').value;
+    const confirm = document.getElementById('edit_password_confirm').value;
+    if (pass && pass.length > 0) {
+        if (pass !== confirm) {
+            e.preventDefault();
+            alert('⚠️ Las contraseñas no coinciden. Por favor verifíquelas.');
+            return false;
+        }
+    }
+    return confirmAction(e, e.target, 'modificar y actualizar');
+}
+
 function openEdit(u) {
     document.getElementById('edit_id').value = u.id;
     document.getElementById('edit_dni').value = u.dni;
@@ -392,8 +461,17 @@ function openEdit(u) {
     document.getElementById('edit_last_name').value = u.last_name;
     document.getElementById('edit_email').value = u.email || '';
     document.getElementById('edit_phone').value = u.phone || '';
-    document.getElementById('edit_office_id').value = u.office_id || '';
+    
+    let officeEl = document.getElementById('edit_office_id');
+    if (officeEl.tomselect) {
+        officeEl.tomselect.setValue(u.office_id || '');
+    } else {
+        officeEl.value = u.office_id || '';
+    }
+    
     document.getElementById('edit_is_active').checked = u.is_active;
+    document.getElementById('edit_password').value = '';
+    document.getElementById('edit_password_confirm').value = '';
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 
@@ -421,6 +499,44 @@ document.getElementById('tableFilter').addEventListener('keyup', function() {
         }
     });
 });
+
+<?php if (!empty($error) && isset($_POST['action'])): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        let action = '<?php echo $_POST['action']; ?>';
+        let postData = <?php echo json_encode($_POST); ?>;
+        
+        if (action === 'create') {
+            document.getElementById('create_dni').value = postData.dni || '';
+            document.getElementById('create_first_name').value = postData.first_name || '';
+            document.getElementById('create_last_name').value = postData.last_name || '';
+            document.getElementById('create_email').value = postData.email || '';
+            document.getElementById('create_phone').value = postData.phone || '';
+            
+            let officeEl = document.getElementById('create_office_id');
+            if (officeEl && officeEl.tomselect) {
+                officeEl.tomselect.setValue(postData.office_id || '');
+            } else if(officeEl) {
+                officeEl.value = postData.office_id || '';
+            }
+            
+            let modalEl = document.getElementById('modalCreate');
+            let modalBody = modalEl.querySelector('.modal-body');
+            modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
+            new bootstrap.Modal(modalEl).show();
+        } else if (action === 'edit') {
+            postData.is_active = (postData.is_active === 'on' || postData.is_active == 1);
+            openEdit(postData);
+            setTimeout(() => {
+                let modalEl = document.getElementById('modalEdit');
+                let modalBody = modalEl.querySelector('.modal-body');
+                let existingAlert = modalBody.querySelector('.alert');
+                if(!existingAlert) {
+                    modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
+                }
+            }, 200);
+        }
+    });
+<?php endif; ?>
 </script>
 
 <?php require 'includes/admin_footer.php'; ?>

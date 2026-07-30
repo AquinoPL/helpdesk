@@ -22,6 +22,25 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS Base -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <!-- TomSelect CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        /* Forzar TomSelect a abrirse siempre hacia arriba */
+        .ts-wrapper.searchable-select .ts-dropdown {
+            top: auto !important;
+            bottom: 100% !important;
+            margin-bottom: 2px !important;
+            border-radius: 0.375rem 0.375rem 0 0 !important;
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+            border-bottom: none !important;
+            border-top: 1px solid #ced4da !important;
+        }
+        /* Limitar a ~7 filas (aprox 260px) y hacer scrollable */
+        .ts-wrapper.searchable-select .ts-dropdown .ts-dropdown-content {
+            max-height: 260px !important;
+            overflow-y: auto !important;
+        }
+    </style>
 </head>
 <body class="new-ui">
 

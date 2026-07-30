@@ -29,28 +29,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Guardar archivos si los hay
             if (isset($_FILES['archivos']['name']) && is_array($_FILES['archivos']['name'])) {
                 $month_folder = date('Y-m') . '/';
-                $upload_dir   = 'uploads/' . $month_folder;
-                if (!is_dir('uploads/')) mkdir('uploads/', 0777, true);
-                if (!is_dir($upload_dir))  mkdir($upload_dir,  0777, true);
+                $physical_dir = __DIR__ . '/uploads/' . $month_folder;
+                $db_dir       = 'uploads/' . $month_folder;
+
+                if (!is_dir(__DIR__ . '/uploads/')) mkdir(__DIR__ . '/uploads/', 0777, true);
+                if (!is_dir($physical_dir)) mkdir($physical_dir, 0777, true);
 
                 $total = count($_FILES['archivos']['name']);
                 for ($i = 0; $i < $total; $i++) {
                     $tmp_name = $_FILES['archivos']['tmp_name'][$i];
                     if ($tmp_name != "") {
                         $name = $_FILES['archivos']['name'][$i];
+                        
+                        // Validar extensión
+                        $allowed_exts = ['doc', 'docx', 'pdf', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+                        $file_ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                        if (!in_array($file_ext, $allowed_exts)) {
+                            continue;
+                        }
+                        
                         $safe_name = preg_replace("/[^a-zA-Z0-9.]+/", "", basename($name));
-                        $file_path = $upload_dir . 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+                        $filename  = 'ticket_' . $new_ticket_id . '_' . time() . '_' . $safe_name;
+                        $target_file  = $physical_dir . $filename;
+                        $db_file_path = $db_dir . $filename;
 
-                        if (move_uploaded_file($tmp_name, $file_path)) {
+                        if (move_uploaded_file($tmp_name, $target_file)) {
                             $stmtFile = $conn->prepare("INSERT INTO ticket_files (ticket_id, file_path) VALUES (?, ?)");
-                            $stmtFile->execute([$new_ticket_id, $file_path]);
+                            $stmtFile->execute([$new_ticket_id, $db_file_path]);
                         }
                     }
                 }
             }
 
             $_SESSION['success_msg'] = "Ticket #$new_ticket_id creado exitosamente.";
-            header("Location: ticket.php?tab=consultar&id=" . $new_ticket_id);
+            header("Location: ticket_detalle.php?id=" . $new_ticket_id);
             exit();
 
         } catch(PDOException $e) {
@@ -132,7 +144,7 @@ function renderPagH($current, $total, $extra = '') {
 <!-- Hero -->
 <div class="hero-public">
     <h2 class="fw-bold mb-2">Gestión de Tickets</h2>
-    <p class="mb-0">Crea un reporte, consulta el estado de uno existente o revisa tu historial.</p>
+    <p class="mb-0">Crea un ticket, consulta el estado de uno existente o revisa tu historial.</p>
     <div class="steps-mini">
         <div class="step"><i class="bi bi-1-circle me-1"></i>Crea tu ticket</div>
         <div class="step"><i class="bi bi-2-circle me-1"></i>Recibe seguimiento</div>
@@ -140,8 +152,8 @@ function renderPagH($current, $total, $extra = '') {
     </div>
 </div>
 
-<div style="margin-top:-2.5rem; padding-bottom: 3rem;">
-    <div class="card card-plain p-4 p-md-5 mx-auto" style="max-width: 860px;">
+<div style="margin-top:-1rem; padding-bottom: 3rem; position:relative; z-index:10;">
+    <div class="card card-plain p-3 p-md-4 mx-auto glass-card" style="max-width: 1050px;">
 
         <?php if (!empty($_SESSION['success_msg'])): ?>
             <div class="alert alert-success alert-auto-dismiss alert-dismissible fade show mb-4" role="alert">
@@ -203,16 +215,14 @@ function renderPagH($current, $total, $extra = '') {
                             }
                             ?>
                             <div class="input-group">
-                                <input type="hidden" name="office_id" id="ticket_office_id" value="<?php echo htmlspecialchars($userOffice); ?>" required>
-                                <input type="text" class="form-control bg-white" id="ticket_office_display"
-                                       value="<?php echo htmlspecialchars($userOfficeName); ?>"
-                                       placeholder="Haz clic para buscar..." readonly
-                                       onclick="openOfficeSearch('ticket_office_id','ticket_office_display')"
-                                       style="cursor:pointer;">
-                                <button type="button" class="btn btn-outline-secondary"
-                                        onclick="openOfficeSearch('ticket_office_id','ticket_office_display')">
-                                    <i class="bi bi-search"></i>
-                                </button>
+                                <select name="office_id" class="form-select searchable-select" required>
+                                    <option value="">Seleccione una oficina...</option>
+                                    <?php foreach ($offices as $of): ?>
+                                        <option value="<?php echo $of['id']; ?>" <?php echo ($userOffice == $of['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($of['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
 
@@ -245,26 +255,31 @@ function renderPagH($current, $total, $extra = '') {
                     </div>
 
                     <!-- Archivos -->
-                    <div class="mb-4">
-                        <label class="form-label small fw-medium mb-2">Evidencias Adjuntas (Máx 5)</label>
-                        <div class="card bg-light border-0 mb-3" style="border: 2px dashed var(--line) !important;">
-                            <div class="card-body text-center p-3">
-                                <i class="bi bi-cloud-arrow-up-fill fs-2" style="color:var(--accent)"></i>
-                                <h6 class="fw-bold mt-2">Añade fotos o documentos</h6>
-                                <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                            onclick="document.getElementById('cameraInput').click()">
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium mb-1">Evidencias Adjuntas (Máx 5)</label>
+                        <div class="card bg-light border-0 mb-2" id="dropZoneTicket" style="border: 1.5px dashed var(--line) !important; transition: all 0.2s ease; cursor: pointer;" onclick="if(event.target.tagName !== 'BUTTON' && !event.target.closest('button')) document.getElementById('fileInput').click();">
+                            <div class="card-body p-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-cloud-arrow-up-fill fs-4" style="color:var(--accent)"></i>
+                                    <div>
+                                        <span class="fw-semibold small d-block mb-0 text-dark">Añade o arrastra fotos / documentos</span>
+                                        <span class="small text-muted" style="font-size: 0.75rem;">Arrastra aquí o usa los botones (Máx 5)</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 ms-auto dropzone-buttons">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 btn-upload-action"
+                                            onclick="event.stopPropagation(); document.getElementById('cameraInput').click()">
                                         <i class="bi bi-camera me-1"></i> Foto
                                     </button>
-                                    <button type="button" class="btn btn-sm text-white"
+                                    <button type="button" class="btn btn-sm text-white py-1 px-2 btn-upload-action"
                                             style="background:var(--accent)"
-                                            onclick="document.getElementById('fileInput').click()">
+                                            onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
                                         <i class="bi bi-folder me-1"></i> Explorar
                                     </button>
                                 </div>
                                 <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
-                                <input type="file" id="fileInput" class="d-none" multiple>
-                                <input type="file" name="archivos[]" id="realInput" class="d-none" multiple>
+                                <input type="file" id="fileInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
+                                <input type="file" name="archivos[]" id="realInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
                             </div>
                         </div>
                         <ul class="list-group list-group-flush border rounded-3 overflow-hidden"
@@ -284,6 +299,7 @@ function renderPagH($current, $total, $extra = '') {
                     const fileInput   = document.getElementById('fileInput');
                     const realInput   = document.getElementById('realInput');
                     const filePreviewList = document.getElementById('filePreviewList');
+                    const dropZoneTicket = document.getElementById('dropZoneTicket');
                     let selectedFiles = [];
                     const MAX_FILES = 5;
 
@@ -302,6 +318,29 @@ function renderPagH($current, $total, $extra = '') {
 
                     cameraInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
                     fileInput.addEventListener('change',   (e) => { handleFiles(e.target.files); e.target.value = ''; });
+
+                    if (dropZoneTicket) {
+                        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+                            dropZoneTicket.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); }, false);
+                        });
+                        ['dragenter', 'dragover'].forEach(evt => {
+                            dropZoneTicket.addEventListener(evt, () => {
+                                dropZoneTicket.style.background = '#e7f1f4';
+                                dropZoneTicket.style.borderColor = 'var(--accent)';
+                            }, false);
+                        });
+                        ['dragleave', 'drop'].forEach(evt => {
+                            dropZoneTicket.addEventListener(evt, () => {
+                                dropZoneTicket.style.background = '';
+                                dropZoneTicket.style.borderColor = 'var(--line)';
+                            }, false);
+                        });
+                        dropZoneTicket.addEventListener('drop', e => {
+                            if (e.dataTransfer && e.dataTransfer.files) {
+                                handleFiles(e.dataTransfer.files);
+                            }
+                        }, false);
+                    }
 
                     function updateFileUI() {
                         filePreviewList.innerHTML = '';

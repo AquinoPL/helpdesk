@@ -19,15 +19,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $role = $_POST['role'];
         $password = $_POST['password'];
         
-        try {
-            $stmt = $conn->prepare("INSERT INTO trabajadores (dni, first_name, last_name, email, phone, office_id, role, password, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)");
-            $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $role, $password]);
-            $success = "Trabajador creado correctamente.";
-        } catch(PDOException $e) {
-            if ($e->getCode() == 23505) {
-                $error = "Error: El DNI o Correo ya está registrado como trabajador.";
-            } else {
-                $error = "Error al crear: " . $e->getMessage();
+        // Check DNI
+        $check = $conn->prepare("SELECT id FROM trabajadores WHERE dni = ?");
+        $check->execute([$dni]);
+        if ($check->fetch()) {
+            $error = "Advertencia: El DNI $dni ya se encuentra registrado como trabajador.";
+        } else {
+            try {
+                $stmt = $conn->prepare("INSERT INTO trabajadores (dni, first_name, last_name, email, phone, office_id, role, password, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)");
+                $stmt->execute([$dni, $first_name, $last_name, $email ?: null, $phone ?: null, $office_id, $role, $password]);
+                $success = "Trabajador creado correctamente.";
+            } catch(PDOException $e) {
+                if ($e->getCode() == 23000) {
+                    $error = "Advertencia: El DNI o Correo ya está registrado como trabajador.";
+                } else {
+                    $error = "Error al crear: " . $e->getMessage();
+                }
             }
         }
     } elseif ($action == 'edit') {
@@ -52,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             $success = "Trabajador actualizado correctamente.";
         } catch(PDOException $e) {
-            if ($e->getCode() == 23505) {
-                $error = "Error: El DNI o Correo ingresado pertenece a otro trabajador.";
+            if ($e->getCode() == 23000) {
+                $error = "Advertencia: El DNI o Correo ya está registrado por otro trabajador.";
             } else {
                 $error = "Error al actualizar: " . $e->getMessage();
             }
@@ -79,15 +86,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $error = "No puedes eliminar tu propia cuenta.";
         } else {
             try {
+                $conn->beginTransaction();
+                
+                // Desvincular tickets asignados
+                $conn->prepare("UPDATE tickets SET technician_id = NULL WHERE technician_id=?")->execute([$id]);
+                
+                // Desvincular del historial de tickets
+                $conn->prepare("UPDATE ticket_history SET changed_by = NULL WHERE changed_by=?")->execute([$id]);
+                
                 $stmt = $conn->prepare("DELETE FROM trabajadores WHERE id=?");
                 $stmt->execute([$id]);
-                $success = "Trabajador eliminado permanentemente.";
+                
+                $conn->commit();
+                $success = "Trabajador eliminado permanentemente (sus tickets fueron desasignados).";
             } catch(PDOException $e) {
-                if ($e->getCode() == 23000 || $e->getCode() == '23000') {
-                    $error = "No se puede eliminar el trabajador porque tiene registros asociados (ej. tickets).";
-                } else {
-                    $error = "Error al eliminar: " . $e->getMessage();
-                }
+                $conn->rollBack();
+                $error = "Error al eliminar: " . $e->getMessage();
             }
         }
     }
@@ -457,6 +471,39 @@ document.getElementById('tableFilter').addEventListener('keyup', function() {
         }
     });
 });
+
+<?php if (!empty($error) && isset($_POST['action'])): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        let action = '<?php echo $_POST['action']; ?>';
+        let postData = <?php echo json_encode($_POST); ?>;
+        
+        if (action === 'create') {
+            document.getElementById('create_role').value = postData.role || 'tecnico';
+            document.getElementById('create_dni').value = postData.dni || '';
+            document.getElementById('create_first_name').value = postData.first_name || '';
+            document.getElementById('create_last_name').value = postData.last_name || '';
+            document.getElementById('create_email').value = postData.email || '';
+            document.getElementById('create_phone').value = postData.phone || '';
+            document.getElementById('create_office_id').value = postData.office_id || '';
+            
+            let modalEl = document.getElementById('modalCreate');
+            let modalBody = modalEl.querySelector('.modal-body');
+            modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
+            new bootstrap.Modal(modalEl).show();
+        } else if (action === 'edit') {
+            postData.is_active = (postData.is_active === 'on' || postData.is_active == 1);
+            openEdit(postData);
+            setTimeout(() => {
+                let modalEl = document.getElementById('modalEdit');
+                let modalBody = modalEl.querySelector('.modal-body');
+                let existingAlert = modalBody.querySelector('.alert');
+                if(!existingAlert) {
+                    modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
+                }
+            }, 200);
+        }
+    });
+<?php endif; ?>
 </script>
 
 <?php require 'includes/admin_footer.php'; ?>

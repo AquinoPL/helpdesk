@@ -1,9 +1,22 @@
 </div> <!-- End container -->
 <!-- Bootstrap 5 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- TomSelect JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <!-- Custom JS -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Initialize TomSelect for searchable dropdowns
+        document.querySelectorAll('.searchable-select').forEach(function(el) {
+            new TomSelect(el, {
+                create: false,
+                sortField: {
+                    field: "text",
+                    direction: "asc"
+                },
+                placeholder: 'Seleccione o escriba para buscar...'
+            });
+        });
         // Auto-dismiss alerts after 5 seconds
         setTimeout(function() {
             var alerts = document.querySelectorAll('.alert-auto-dismiss');
