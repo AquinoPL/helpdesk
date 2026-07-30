@@ -18,6 +18,26 @@ if (!$id || !$dni) {
     exit();
 }
 
+// Manejar POST de calificación
+$rating_success = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'calificar') {
+    $rating_val = (int)$_POST['rating'];
+    if ($rating_val >= 0 && $rating_val <= 5) {
+        try {
+            // Verificar que el DNI coincide con el dueño del ticket y que está finalizado
+            $stmtVerify = $conn->prepare("SELECT t.id FROM tickets t JOIN usuarios u ON t.user_id = u.id WHERE t.id = ? AND u.dni = ? AND t.status IN ('Atendido','Rechazado')");
+            $stmtVerify->execute([$id, $dni]);
+            if ($stmtVerify->fetchColumn()) {
+                $stmtRate = $conn->prepare("UPDATE tickets SET rating = ? WHERE id = ?");
+                $stmtRate->execute([$rating_val, $id]);
+                $rating_success = 'rated';
+            }
+        } catch (PDOException $e) { /* silencioso */ }
+    }
+    header("Location: ticket_status.php?id=$id&dni=" . urlencode($dni) . ($rating_success ? '&rated=1' : ''));
+    exit();
+}
+
 try {
     $stmt = $conn->prepare("
         SELECT t.*, u.dni, u.first_name, u.last_name, u.email, u.phone, COALESCE(o.name, o2.name) as office_name 
@@ -290,6 +310,132 @@ endif;
         <?php endif; ?>
     </div>
 </div>
+
+<?php if (!isset($error) && in_array($current_status, ['Atendido', 'Rechazado'])): ?>
+<!-- CALIFICACIÓN DEL TICKET (usuario no registrado) -->
+<div class="row justify-content-center mb-4">
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm fade-in" id="rating-card-public">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-1">
+                    <?php if ($current_status === 'Atendido'): ?>
+                        <i class="bi bi-star-fill text-warning me-2"></i> Califica la atención
+                    <?php else: ?>
+                        <i class="bi bi-star text-secondary me-2"></i> Califica el servicio
+                    <?php endif; ?>
+                </h5>
+                <p class="text-muted small mb-3">Tu opinión nos ayuda a mejorar. Selecciona entre 0 y 5 estrellas.</p>
+
+                <?php
+                // Re-leer el rating actualizado del ticket
+                $pub_rating = $ticket['rating'];
+                $rated_now = isset($_GET['rated']) && $_GET['rated'] == '1';
+                ?>
+
+                <?php if ($rated_now): ?>
+                    <div class="alert alert-success py-2"><i class="bi bi-check-circle me-2"></i>¡Gracias por tu calificación!</div>
+                <?php endif; ?>
+
+                <?php if ($pub_rating !== null): ?>
+                    <!-- Ya calificó: mostrar resultado con opción de modificar -->
+                    <div class="d-flex align-items-center gap-3 flex-wrap mb-3" id="pub-star-display-static">
+                        <?php for ($s = 1; $s <= 5; $s++): ?>
+                            <i class="bi <?php echo $s <= $pub_rating ? 'bi-star-fill text-warning' : 'bi-star text-secondary'; ?> fs-3"></i>
+                        <?php endfor; ?>
+                        <span class="badge bg-warning text-dark fs-6 px-3 py-2"><?php echo $pub_rating; ?>/5</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEditRatingPub"
+                            onclick="document.getElementById('pub-rating-form').style.display='block'; this.style.display='none'; document.getElementById('pub-star-display-static').style.display='none';">
+                            <i class="bi bi-pencil me-1"></i> Modificar
+                        </button>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Formulario de calificación -->
+                <div id="pub-rating-form" style="<?php echo $pub_rating !== null ? 'display:none;' : 'display:block;'; ?>">
+                    <form method="POST" action="ticket_status.php?id=<?php echo $id; ?>&dni=<?php echo urlencode($dni); ?>" id="pubRatingForm">
+                        <input type="hidden" name="action" value="calificar">
+                        <input type="hidden" name="rating" id="pubRatingInput" value="<?php echo $pub_rating ?? 0; ?>">
+                        <div class="star-rating-pub mb-3" id="pubStarRating">
+                            <?php for ($s = 5; $s >= 0; $s--): ?>
+                                <button type="button" class="star-btn-pub" data-value="<?php echo $s; ?>"
+                                    title="<?php echo $s; ?> estrella<?php echo $s !== 1 ? 's' : ''; ?>">
+                                    <?php if ($s === 0): ?>
+                                        <span class="text-muted small" style="font-size:0.8rem;">0</span>
+                                    <?php else: ?>
+                                        <i class="bi bi-star fs-2"></i>
+                                    <?php endif; ?>
+                                </button>
+                            <?php endfor; ?>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <button type="submit" class="btn btn-primary px-4" id="pubRatingSubmitBtn" <?php echo $pub_rating === null ? 'disabled' : ''; ?>>
+                                <i class="bi bi-send me-1"></i> Enviar calificación
+                            </button>
+                            <?php if ($pub_rating !== null): ?>
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('pub-rating-form').style.display='none'; document.getElementById('btnEditRatingPub').style.display='inline-block'; document.getElementById('pub-star-display-static').style.display='flex';">
+                                Cancelar
+                            </button>
+                            <?php endif; ?>
+                            <span class="text-muted small" id="pubRatingLabel"><?php echo $pub_rating !== null ? '' : 'Selecciona una calificación'; ?></span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.star-rating-pub { display: flex; flex-direction: row-reverse; gap: 4px; align-items: center; }
+.star-btn-pub { background: none; border: none; cursor: pointer; padding: 4px; transition: transform 0.15s; line-height: 1; }
+.star-btn-pub:hover { transform: scale(1.2); }
+.star-btn-pub .bi-star { color: #ccc; transition: color 0.15s; }
+#pub-star-display-static { display: flex; gap: 2px; align-items: center; }
+</style>
+
+<script>
+(function() {
+    const starBtns = document.querySelectorAll('#pubStarRating .star-btn-pub');
+    const ratingInput = document.getElementById('pubRatingInput');
+    const ratingLabel = document.getElementById('pubRatingLabel');
+    const submitBtn = document.getElementById('pubRatingSubmitBtn');
+    if (!starBtns.length) return;
+    const labels = ['Sin calificación (0)', '1 estrella', '2 estrellas', '3 estrellas', '4 estrellas', '5 estrellas'];
+
+    const initVal = parseInt(ratingInput.value) || 0;
+    if (initVal > 0) { highlightStars(initVal); }
+
+    starBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const val = parseInt(this.dataset.value);
+            ratingInput.value = val;
+            submitBtn.disabled = false;
+            ratingLabel.textContent = labels[val] || '';
+            highlightStars(val);
+        });
+        btn.addEventListener('mouseenter', function() { highlightStars(parseInt(this.dataset.value)); });
+    });
+
+    document.getElementById('pubStarRating').addEventListener('mouseleave', function() {
+        highlightStars(parseInt(ratingInput.value) || 0);
+    });
+
+    function highlightStars(val) {
+        starBtns.forEach(btn => {
+            const bVal = parseInt(btn.dataset.value);
+            const icon = btn.querySelector('i.bi-star, i.bi-star-fill');
+            if (icon) {
+                if (bVal > 0 && bVal <= val) {
+                    icon.classList.remove('bi-star'); icon.classList.add('bi-star-fill', 'text-warning'); icon.style.color = '';
+                } else if (bVal > 0) {
+                    icon.classList.remove('bi-star-fill', 'text-warning'); icon.classList.add('bi-star'); icon.style.color = '#ccc';
+                }
+            }
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 
 <!-- Modal Fullscreen Image Viewer -->
 <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true">

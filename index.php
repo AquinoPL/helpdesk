@@ -230,8 +230,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$is_logged_in) {
                     $stmtUser->execute([$dni, $first_name, $last_name, $phone, $office_id, $dni]);
                     $user_id = $conn->lastInsertId();
                 } else {
-                    $stmtUpdate = $conn->prepare("UPDATE usuarios SET phone = ?, office_id = ? WHERE id = ?");
-                    $stmtUpdate->execute([$phone, $office_id, $user_id]);
+                    $stmtUpdate = $conn->prepare("UPDATE usuarios SET first_name = ?, last_name = ?, phone = ?, office_id = ? WHERE id = ?");
+                    $stmtUpdate->execute([$first_name, $last_name, $phone, $office_id, $user_id]);
                 }
 
                 $stmt = $conn->prepare("INSERT INTO tickets (user_id, category, title, description, office_id) VALUES (?, ?, ?, ?, ?)");
@@ -570,15 +570,10 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
                                         <option value="CE">CE</option>
                                     </select>
                                 </div>
-                                <div class="input-group">
-                                    <input type="text" name="dni" id="f_dni" class="form-control" required
-                                        pattern="\d{8}" title="Debe tener 8 dígitos numéricos" placeholder="Ej: 12345678"
-                                        value="<?php echo $post['dni']; ?>">
-                                    <button class="btn btn-outline-primary" type="button" id="btnSearchPublicDni" title="Buscar mis datos">
-                                        <i class="bi bi-search"></i> Buscar
-                                    </button>
-                                </div>
-                                <div id="publicDniStatus" class="form-text mt-1 text-muted" style="font-size: 0.75rem;">Ingresa tu DNI y pulsa Buscar.</div>
+                                <input type="text" name="dni" id="f_dni" class="form-control" required
+                                    pattern="\d{8}" title="Debe tener 8 dígitos numéricos" placeholder="Ej: 12345678"
+                                    value="<?php echo $post['dni']; ?>">
+                                <div id="publicDniStatus" class="form-text mt-1 text-muted" style="font-size: 0.75rem;">Ingresa tu N° Documento.</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-medium">Nombres</label>
@@ -886,6 +881,35 @@ function renderPagination($current, $total, $paramName, $otherParamName, $otherV
             </div><!-- /tab-content -->
         </div><!-- /card -->
     </div>
+
+    <!-- Delete Public Modal -->
+    <?php if ($pub_result && $cs === 'Pendiente'): ?>
+    <div class="modal fade" id="deletePublicModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 text-center pt-0">
+                    <div class="text-danger mb-3">
+                        <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">¿Eliminar Ticket?</h4>
+                    <p class="text-muted mb-4">Esta acción no se puede deshacer. ¿Estás seguro de que deseas cancelar este ticket?</p>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="delete_public_ticket">
+                        <input type="hidden" name="ticket_id" value="<?php echo htmlspecialchars($pub_result['id']); ?>">
+                        <input type="hidden" name="dni" value="<?php echo htmlspecialchars($pub_result['dni']); ?>">
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Mantener ticket</button>
+                            <button type="submit" class="btn btn-danger px-4">Sí, eliminar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Office Search Modal -->
     <div class="modal fade" id="officeSearchModal" tabindex="-1" aria-hidden="true">
@@ -1210,45 +1234,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDniField();
     }
 
-    const btnSearchDni = document.getElementById('btnSearchPublicDni');
-    const inputDni = document.getElementById('f_dni');
-    const statusDni = document.getElementById('publicDniStatus');
-    if(btnSearchDni && inputDni) {
-        btnSearchDni.addEventListener('click', function() {
-            let dni = inputDni.value.trim();
-            if(dni.length !== 8) {
-                statusDni.innerHTML = '<span class="text-danger">El DNI debe tener 8 dígitos.</span>';
-                return;
-            }
-            statusDni.innerHTML = '<span class="text-info"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Buscando...</span>';
-            btnSearchDni.disabled = true;
-            
-            fetch('ajax_search_public_user.php?dni=' + dni)
-                .then(response => response.json())
-                .then(data => {
-                    btnSearchDni.disabled = false;
-                    if(data.success) {
-                        const u = data.data;
-                        document.querySelector('input[name="first_name"]').value = u.first_name || '';
-                        document.querySelector('input[name="last_name"]').value = u.last_name || '';
-                        document.querySelector('input[name="phone"]').value = u.phone || '';
-                        
-                        let selectOffice = document.querySelector('select[name="office_id"]');
-                        if(selectOffice && u.office_id) {
-                            selectOffice.value = u.office_id;
-                        }
-                        
-                        statusDni.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Datos cargados.</span>';
-                    } else {
-                        statusDni.innerHTML = '<span class="text-muted"><i class="bi bi-info-circle-fill me-1"></i>' + data.message + '</span>';
-                    }
-                })
-                .catch(error => {
-                    btnSearchDni.disabled = false;
-                    statusDni.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Error de conexión.</span>';
-                });
-        });
-    }
+
 });
 </script>
 <?php endif; ?>

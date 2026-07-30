@@ -1,1 +1,0 @@
-<?php require 'config/database.php'; $stmt = $conn->prepare('CALL login_user(?, ?)'); $stmt->execute(['70000001', '123456']); $r1 = $stmt->fetch(PDO::FETCH_ASSOC); var_dump($r1); $stmt->closeCursor(); ?>

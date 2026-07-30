@@ -16,6 +16,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración - Soporte</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HelpDesk Admin">
+    <link rel="apple-touch-icon" href="<?php echo BASE_URL; ?>/pwa/icons/icon-192x192.png">
+    <link rel="manifest" href="<?php echo BASE_URL; ?>/manifest.json">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->

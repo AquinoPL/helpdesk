@@ -15,7 +15,7 @@ $success = '';
 if (isset($_GET['success'])) {
     if ($_GET['success'] == 'assigned') $success = "Técnico asignado correctamente.";
     if ($_GET['success'] == 'updated') $success = "Estado del ticket actualizado.";
-
+    if ($_GET['success'] == 'rated')   $success = "¡Gracias por tu calificación!";
 }
 
 // Lógica de acciones por POST
@@ -98,6 +98,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
         }
 
 // La edición se movió a admin/tickets.php
+
+        if ($_POST['action'] == 'calificar' && $user['role'] == 'usuario') {
+            $rating_val = (int)$_POST['rating'];
+            if ($rating_val >= 0 && $rating_val <= 5) {
+                // Solo si el ticket pertenece al usuario y está finalizado
+                $stmtR = $conn->prepare("UPDATE tickets SET rating = ? WHERE id = ? AND user_id = ? AND status IN ('Atendido','Rechazado')");
+                $stmtR->execute([$rating_val, $ticket_id, $user['id']]);
+            }
+            header("Location: ticket_detalle.php?id=$ticket_id&success=rated");
+            exit();
+        }
 
         if ($_POST['action'] == 'reaccionar' && ($user['role'] == 'tecnico' || $user['role'] == 'admin')) {
             $status = $_POST['status'];
@@ -286,17 +297,26 @@ if ($user['role'] == 'admin') {
                         </div>
                     </div>
                     <?php if (!empty($tec['tech_phone'])): ?>
-                    <a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $tec['tech_phone']); ?>"
-                       class="btn btn-success fw-semibold px-4 py-2 d-flex align-items-center gap-2"
-                       style="border-radius: 2rem; font-size:.9rem;">
-                        <i class="bi bi-telephone-fill fs-5"></i>
-                        <span>Llamar ahora</span>
-                    </a>
+                    <div class="d-flex gap-2">
+                        <a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $tec['tech_phone']); ?>"
+                           class="btn btn-success fw-semibold px-4 py-2 d-flex align-items-center gap-2"
+                           style="border-radius: 2rem; font-size:.9rem;">
+                            <i class="bi bi-telephone-fill fs-5"></i>
+                            <span>Llamar ahora</span>
+                        </a>
+                        <a href="https://wa.me/51<?php echo preg_replace('/[^0-9]/', '', $tec['tech_phone']); ?>" target="_blank"
+                           class="btn fw-semibold px-4 py-2 d-flex align-items-center gap-2"
+                           style="border-radius: 2rem; font-size:.9rem; background-color:#25D366; color:#fff;">
+                            <i class="bi bi-whatsapp fs-5"></i>
+                            <span>WhatsApp</span>
+                        </a>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
         <?php endif; ?>
+
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-4 bg-light">
@@ -624,8 +644,8 @@ if ($user['role'] == 'admin') {
         <?php endif; ?>
 
         <div id="assigned-techs-wrapper">
-        <?php if (count($asignaciones) > 0): ?>
-            <!-- Técnicos Asignados Actualmente -->
+        <?php if (count($asignaciones) > 0 && $user['role'] !== 'usuario'): ?>
+            <!-- Técnicos Asignados Actualmente (solo visible para admin/técnico) -->
             <div class="card card-plain border-0 mb-4 fade-in">
                 <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
                     <h6 class="fw-bold mb-0 text-muted"><i class="bi bi-people me-2"></i> Técnicos Asignados</h6>
@@ -636,13 +656,6 @@ if ($user['role'] == 'admin') {
                         <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
                                 <span class="d-block fw-medium text-dark"><?php echo htmlspecialchars($asig['first_name'] . ' ' . $asig['last_name']); ?></span>
-                                <?php if($user['role'] == 'usuario' && !empty($asig['tech_phone']) && preg_match('/^[0-9]{9}$/', trim($asig['tech_phone']))): ?>
-                                    <div class="mt-2">
-                                        <span class="small text-muted me-2"><i class="bi bi-telephone me-1"></i> <?php echo htmlspecialchars($asig['tech_phone']); ?></span>
-                                        <a href="tel:<?php echo htmlspecialchars(trim($asig['tech_phone'])); ?>" class="btn btn-sm btn-success py-1 px-3" style="font-size: 0.9rem;" title="Llamar al Técnico"><i class="bi bi-telephone-outbound"></i></a>
-                                        <a href="https://wa.me/51<?php echo htmlspecialchars(trim($asig['tech_phone'])); ?>" target="_blank" class="btn btn-sm ms-1 py-1 px-3" style="font-size: 0.9rem; background-color: #25D366; color: white; border: none;" title="WhatsApp al Técnico"><i class="bi bi-whatsapp"></i></a>
-                                    </div>
-                                <?php endif; ?>
                             </div>
                             <span class="badge border border-secondary text-secondary rounded-pill"><?php echo htmlspecialchars($asig['status']); ?></span>
                         </li>
@@ -652,6 +665,154 @@ if ($user['role'] == 'admin') {
             </div>
         <?php endif; ?>
         </div>
+
+        <!-- CALIFICACIÓN DEL TICKET -->
+        <?php if (in_array($current_status, ['Atendido', 'Rechazado'])): ?>
+        <div class="card border-0 shadow-sm mb-4 fade-in" id="rating-card">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-1">
+                    <?php if ($current_status === 'Atendido'): ?>
+                        <i class="bi bi-star-fill text-warning me-2"></i> Califica la atención
+                    <?php else: ?>
+                        <i class="bi bi-star text-secondary me-2"></i> Califica el servicio
+                    <?php endif; ?>
+                </h5>
+                <p class="text-muted small mb-3">Tu opinión nos ayuda a mejorar. Selecciona entre 0 y 5 estrellas.</p>
+
+                <?php $current_rating = $ticket['rating']; ?>
+
+                <?php if ($user['role'] === 'usuario' && $ticket['user_id'] == $user['id']): ?>
+                    <?php if ($current_rating !== null): ?>
+                        <!-- Ya calificó: mostrar calificación actual con opción de modificar -->
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <div class="star-display" id="star-display-static">
+                                <?php for ($s = 1; $s <= 5; $s++): ?>
+                                    <i class="bi <?php echo $s <= $current_rating ? 'bi-star-fill text-warning' : 'bi-star text-secondary'; ?> fs-3"></i>
+                                <?php endfor; ?>
+                            </div>
+                            <span class="badge bg-warning text-dark fs-6 px-3 py-2"><?php echo $current_rating; ?>/5</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnEditRating"
+                                onclick="document.getElementById('rating-form-container').style.display='block'; this.style.display='none'; document.getElementById('star-display-static').style.display='none';">
+                                <i class="bi bi-pencil me-1"></i> Modificar
+                            </button>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Formulario de calificación (visible si no ha calificado, o al editar) -->
+                    <div id="rating-form-container" style="<?php echo $current_rating !== null ? 'display:none;' : 'display:block;'; ?>">
+                        <form method="POST" id="ratingForm">
+                            <input type="hidden" name="action" value="calificar">
+                            <input type="hidden" name="rating" id="ratingInput" value="<?php echo $current_rating ?? 0; ?>">
+                            <div class="star-rating mb-3" id="starRating">
+                                <?php for ($s = 5; $s >= 0; $s--): ?>
+                                    <button type="button" class="star-btn" data-value="<?php echo $s; ?>"
+                                        title="<?php echo $s; ?> estrella<?php echo $s !== 1 ? 's' : ''; ?>">
+                                        <?php if ($s === 0): ?>
+                                            <span class="text-muted small" style="font-size:0.8rem;">0</span>
+                                        <?php else: ?>
+                                            <i class="bi bi-star fs-2"></i>
+                                        <?php endif; ?>
+                                    </button>
+                                <?php endfor; ?>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <button type="submit" class="btn btn-primary px-4" id="ratingSubmitBtn" disabled>
+                                    <i class="bi bi-send me-1"></i> Enviar calificación
+                                </button>
+                                <?php if ($current_rating !== null): ?>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('rating-form-container').style.display='none'; document.getElementById('btnEditRating').style.display='inline-block'; document.getElementById('star-display-static').style.display='flex';">
+                                    Cancelar
+                                </button>
+                                <?php endif; ?>
+                                <span class="text-muted small" id="ratingLabel">Selecciona una calificación</span>
+                            </div>
+                        </form>
+                    </div>
+
+                <?php else: ?>
+                    <!-- Admin/Técnico: solo vista de lectura -->
+                    <div class="d-flex align-items-center gap-2">
+                        <?php if ($current_rating !== null): ?>
+                            <?php for ($s = 1; $s <= 5; $s++): ?>
+                                <i class="bi <?php echo $s <= $current_rating ? 'bi-star-fill text-warning' : 'bi-star text-secondary'; ?> fs-3"></i>
+                            <?php endfor; ?>
+                            <span class="ms-2 badge bg-warning text-dark fs-6 px-3 py-2"><?php echo $current_rating; ?>/5</span>
+                        <?php else: ?>
+                            <span class="text-muted fst-italic small"><i class="bi bi-clock me-1"></i>El usuario aún no ha calificado este ticket.</span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <style>
+        .star-rating { display: flex; flex-direction: row-reverse; gap: 4px; align-items: center; }
+        .star-btn { background: none; border: none; cursor: pointer; padding: 4px; transition: transform 0.15s; line-height: 1; }
+        .star-btn:hover, .star-btn:hover ~ .star-btn { transform: scale(1.2); }
+        .star-btn .bi-star { color: #ccc; transition: color 0.15s; }
+        .star-btn.active .bi-star, .star-btn.active ~ .star-btn .bi-star { color: #ffc107; }
+        .star-btn.active .bi-star::before { content: "\F588"; } /* bi-star-fill unicode */
+        .star-display { display: flex; gap: 2px; }
+        #star-display-static { align-items: center; }
+        </style>
+
+        <script>
+        (function() {
+            const starBtns = document.querySelectorAll('#starRating .star-btn');
+            const ratingInput = document.getElementById('ratingInput');
+            const ratingLabel = document.getElementById('ratingLabel');
+            const submitBtn = document.getElementById('ratingSubmitBtn');
+            const labels = ['Sin calificación (0)', '1 estrella', '2 estrellas', '3 estrellas', '4 estrellas', '5 estrellas'];
+
+            // Init with current value
+            const initVal = parseInt(ratingInput.value) || 0;
+            if (initVal > 0) {
+                submitBtn.disabled = false;
+                ratingLabel.textContent = labels[initVal];
+                highlightStars(initVal);
+            } else if (initVal === 0 && ratingInput.value !== '') {
+                submitBtn.disabled = false;
+                ratingLabel.textContent = labels[0];
+            }
+
+            starBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const val = parseInt(this.dataset.value);
+                    ratingInput.value = val;
+                    submitBtn.disabled = false;
+                    ratingLabel.textContent = labels[val] || 'Sin calificación';
+                    highlightStars(val);
+                });
+                btn.addEventListener('mouseenter', function() {
+                    const val = parseInt(this.dataset.value);
+                    highlightStars(val);
+                });
+            });
+
+            document.getElementById('starRating').addEventListener('mouseleave', function() {
+                highlightStars(parseInt(ratingInput.value) || 0);
+            });
+
+            function highlightStars(val) {
+                starBtns.forEach(btn => {
+                    const bVal = parseInt(btn.dataset.value);
+                    const icon = btn.querySelector('i.bi-star, i.bi-star-fill');
+                    if (icon) {
+                        if (bVal > 0 && bVal <= val) {
+                            icon.classList.remove('bi-star');
+                            icon.classList.add('bi-star-fill', 'text-warning');
+                            icon.style.color = '';
+                        } else if (bVal > 0) {
+                            icon.classList.remove('bi-star-fill', 'text-warning');
+                            icon.classList.add('bi-star');
+                            icon.style.color = '#ccc';
+                        }
+                    }
+                });
+            }
+        })();
+        </script>
+        <?php endif; ?>
 
         <!-- REPORTE DEL TÉCNICO -->
         <?php if (!empty($ticket['tech_comment'])): ?>
