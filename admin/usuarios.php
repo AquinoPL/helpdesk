@@ -500,41 +500,19 @@ document.getElementById('tableFilter').addEventListener('keyup', function() {
     });
 });
 
-<?php if (!empty($error) && isset($_POST['action'])): ?>
+<?php if (!empty($error) && isset($_POST['action']) && $_POST['action'] === 'edit'): ?>
     document.addEventListener('DOMContentLoaded', function() {
-        let action = '<?php echo $_POST['action']; ?>';
         let postData = <?php echo json_encode($_POST); ?>;
-        
-        if (action === 'create') {
-            document.getElementById('create_dni').value = postData.dni || '';
-            document.getElementById('create_first_name').value = postData.first_name || '';
-            document.getElementById('create_last_name').value = postData.last_name || '';
-            document.getElementById('create_email').value = postData.email || '';
-            document.getElementById('create_phone').value = postData.phone || '';
-            
-            let officeEl = document.getElementById('create_office_id');
-            if (officeEl && officeEl.tomselect) {
-                officeEl.tomselect.setValue(postData.office_id || '');
-            } else if(officeEl) {
-                officeEl.value = postData.office_id || '';
-            }
-            
-            let modalEl = document.getElementById('modalCreate');
+        postData.is_active = (postData.is_active === 'on' || postData.is_active == 1);
+        openEdit(postData);
+        setTimeout(() => {
+            let modalEl = document.getElementById('modalEdit');
             let modalBody = modalEl.querySelector('.modal-body');
-            modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
-            new bootstrap.Modal(modalEl).show();
-        } else if (action === 'edit') {
-            postData.is_active = (postData.is_active === 'on' || postData.is_active == 1);
-            openEdit(postData);
-            setTimeout(() => {
-                let modalEl = document.getElementById('modalEdit');
-                let modalBody = modalEl.querySelector('.modal-body');
-                let existingAlert = modalBody.querySelector('.alert');
-                if(!existingAlert) {
-                    modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
-                }
-            }, 200);
-        }
+            let existingAlert = modalBody.querySelector('.alert');
+            if(!existingAlert) {
+                modalBody.insertAdjacentHTML('afterbegin', `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo addslashes($error); ?></div>`);
+            }
+        }, 200);
     });
 <?php endif; ?>
 </script>
