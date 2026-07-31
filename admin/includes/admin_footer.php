@@ -100,7 +100,7 @@
     }
 </script>
 <!-- Botón Flotante para Instalar PWA -->
-<button id="btnInstallPwa" class="btn btn-primary shadow-lg rounded-pill fade-in" style="display: none; position: fixed; bottom: 30px; left: 30px; z-index: 9999; padding: 12px 24px; font-weight: 600;">
+<button id="btnInstallPwa" class="btn btn-primary shadow-lg rounded-pill fade-in" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 9999; padding: 12px 24px; font-weight: 600;">
     <i class="bi bi-phone me-2"></i>Instalar App
 </button>
 

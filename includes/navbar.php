@@ -1,6 +1,6 @@
 <nav class="navbar-public sticky-top d-flex justify-content-between align-items-center flex-wrap gap-2" style="z-index: 1030;">
     <a href="<?php echo BASE_URL; ?>/index.php" class="text-decoration-none">
-        <div class="brand"><i class="bi bi-headset me-2"></i>HelpDesk<span style="color:var(--accent)">.</span></div>
+        <div class="brand"><i class="bi bi-headset me-2"></i>Soporte Alto Alianza<span style="color:var(--accent)">.</span></div>
     </a>
     
     <!-- Enlaces Escritorio -->
@@ -53,7 +53,7 @@
             </div>
         </div>
     <?php else: ?>
-        <h5 class="offcanvas-title fw-bold text-dark"><i class="bi bi-headset me-2 text-primary"></i>HelpDesk</h5>
+        <h5 class="offcanvas-title fw-bold text-dark"><i class="bi bi-headset me-2 text-primary"></i>Soporte Alto Alianza</h5>
     <?php endif; ?>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
   </div>

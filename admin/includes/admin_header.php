@@ -20,8 +20,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <meta name="theme-color" content="#0d6efd">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="HelpDesk Admin">
+    <meta name="apple-mobile-web-app-title" content="Soporte Alto Alianza">
     <link rel="apple-touch-icon" href="<?php echo BASE_URL; ?>/pwa/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>/favicon.png">
     <link rel="manifest" href="<?php echo BASE_URL; ?>/manifest.json">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
@@ -53,7 +54,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
     <nav class="sidebar" id="sidebar">
         <a href="<?php echo BASE_URL; ?>/index.php" class="text-decoration-none">
-            <div class="brand"><i class="bi bi-headset"></i> HelpDesk<span style="color:var(--accent)">.</span></div>
+            <div class="brand"><i class="bi bi-headset"></i> Soporte Alto Alianza<span style="color:var(--accent)">.</span></div>
         </a>
         <div class="nav flex-column mt-2">
             <a class="nav-link <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?> d-flex align-items-center" href="<?php echo BASE_URL; ?>/admin/dashboard.php">

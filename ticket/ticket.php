@@ -42,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         $name = $_FILES['archivos']['name'][$i];
                         
                         // Validar extensión
-                        $allowed_exts = ['doc', 'docx', 'pdf', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+                        $allowed_exts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'heic', 'heif'];
                         $file_ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                         if (!in_array($file_ext, $allowed_exts)) {
                             continue;
@@ -268,7 +268,7 @@ function renderPagH($current, $total, $extra = '') {
                                 </div>
                                 <div class="d-flex gap-2 ms-auto dropzone-buttons">
                                     <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 btn-upload-action"
-                                            onclick="event.stopPropagation(); document.getElementById('cameraInput').click()">
+                                            onclick="event.stopPropagation(); openFotoTicket()">
                                         <i class="bi bi-camera me-1"></i> Foto
                                     </button>
                                     <button type="button" class="btn btn-sm text-white py-1 px-2 btn-upload-action"
@@ -277,9 +277,9 @@ function renderPagH($current, $total, $extra = '') {
                                         <i class="bi bi-folder me-1"></i> Explorar
                                     </button>
                                 </div>
-                                <input type="file" id="cameraInput" accept="image/*" capture="environment" class="d-none" multiple>
-                                <input type="file" id="fileInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
-                                <input type="file" name="archivos[]" id="realInput" accept=".doc,.docx,.pdf,.xls,.xlsx,.csv,image/*" class="d-none" multiple>
+                                <input type="file" id="fotoInput" accept="image/*" class="d-none">
+                                <input type="file" id="fileInput" accept="image/*" class="d-none" multiple>
+                                <input type="file" name="archivos[]" id="realInput" accept="image/*" class="d-none" multiple>
                             </div>
                         </div>
                         <ul class="list-group list-group-flush border rounded-3 overflow-hidden"
@@ -295,13 +295,26 @@ function renderPagH($current, $total, $extra = '') {
                 </form>
 
                 <script>
-                    const cameraInput = document.getElementById('cameraInput');
+                    const fotoInput   = document.getElementById('fotoInput');
                     const fileInput   = document.getElementById('fileInput');
                     const realInput   = document.getElementById('realInput');
                     const filePreviewList = document.getElementById('filePreviewList');
                     const dropZoneTicket = document.getElementById('dropZoneTicket');
                     let selectedFiles = [];
                     const MAX_FILES = 5;
+
+                    // Detectar móvil y configurar el botón de foto
+                    function isMobile() {
+                        return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+                    }
+                    function openFotoTicket() {
+                        if (isMobile()) {
+                            fotoInput.setAttribute('capture', 'environment');
+                        } else {
+                            fotoInput.removeAttribute('capture');
+                        }
+                        fotoInput.click();
+                    }
 
                     function handleFiles(files) {
                         for (let i = 0; i < files.length; i++) {
@@ -316,8 +329,8 @@ function renderPagH($current, $total, $extra = '') {
                         updateFileUI();
                     }
 
-                    cameraInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
-                    fileInput.addEventListener('change',   (e) => { handleFiles(e.target.files); e.target.value = ''; });
+                    fotoInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
+                    fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
 
                     if (dropZoneTicket) {
                         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
@@ -349,7 +362,6 @@ function renderPagH($current, $total, $extra = '') {
                             dt.items.add(file);
                             let icon = 'bi-file-earmark';
                             if (file.type.startsWith('image/')) icon = 'bi-image text-primary';
-                            else if (file.type === 'application/pdf') icon = 'bi-file-earmark-pdf text-danger';
                             const li = document.createElement('li');
                             li.className = 'list-group-item d-flex justify-content-between align-items-center bg-white py-2';
                             li.innerHTML = `

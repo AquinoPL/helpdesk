@@ -1,6 +1,6 @@
 {
-  "name": "HelpDesk PWA",
-  "short_name": "HelpDesk",
+  "name": "Soporte Alianza",
+  "short_name": "SA",
   "description": "Sistema de Gestión de Soporte Técnico",
   "start_url": "./index.php",
   "display": "standalone",

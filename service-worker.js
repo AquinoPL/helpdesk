@@ -79,7 +79,7 @@ self.addEventListener('fetch', event => {
 // Preparación para notificaciones Push futuras
 self.addEventListener('push', event => {
     const data = event.data ? event.data.json() : {};
-    const title = data.title || 'HelpDesk Notificación';
+    const title = data.title || 'Soporte Alto Alianza Notificación';
     const options = {
         body: data.body || 'Tienes una nueva actualización.',
         icon: './pwa/icons/icon-192x192.png',

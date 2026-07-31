@@ -8,8 +8,9 @@
     <meta name="theme-color" content="#0d6efd">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="HelpDesk">
+    <meta name="apple-mobile-web-app-title" content="Soporte Alto Alianza">
     <link rel="apple-touch-icon" href="<?php echo BASE_URL; ?>/pwa/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>/favicon.png">
     <link rel="manifest" href="<?php echo BASE_URL; ?>/manifest.json">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
