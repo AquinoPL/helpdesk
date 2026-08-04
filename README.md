@@ -41,10 +41,21 @@ Abre Laragon e inicia los servicios:
 * Apache o Nginx (según la configuración del proyecto)
 * MySQL
 
-### 4. Configurar el archivo de entorno
+### 4. Creacion de la base de datos
 
+1. Abrir Mysql Workbench y ejecutar el archivo
+```env
+config/database-mysql.sql
+```
 
-2. Configura los datos de conexión a la base de datos:
+### 5. Configura los datos de conexión a la base de datos
+
+Abrir el archivo con VS Code
+
+```env
+config/database.php
+```
+Ajusta estos valores según tu configuración local
 
 ```env
 DB_HOST=127.0.0.1
@@ -54,56 +65,25 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-> Ajusta estos valores según tu configuración local.
+### 5. Iniciar el proyecto
 
-### 5. Crear la base de datos
-
-1. Abre **MySQL Workbench**.
-2. Conéctate al servidor MySQL de Laragon.
-3. Crea una nueva base de datos con el nombre configurado en el archivo `.env`.
-
-Si el proyecto incluye un archivo `.sql`, impórtalo en la base de datos creada.
-
-### 6. Instalar dependencias
-
-Si el proyecto utiliza Composer, ejecuta:
-
+Acceder a la carpeta del proyecto
 ```bash
-composer install
+cd helpdesk/
 ```
-
-Si utiliza Node.js para los recursos frontend, ejecuta:
-
+Una ves dentro de la carpeta del proyecto ejecutar el proyecto con PHP
 ```bash
-npm install
+php -S localhost:8080
 ```
 
-### 7. Ejecutar migraciones (si aplica)
+o accede directamente a la carpeta de laragon :
 
-```bash
-php artisan migrate
-```
-
-Si el proyecto tiene datos iniciales:
-
-```bash
-php artisan db:seed
-```
-
-### 8. Iniciar el proyecto
-
-Si es un proyecto Laravel:
-
-```bash
-php artisan serve
-```
-
-o accede mediante Laragon:
+C:\laragon\www\helpdesk
 
 ```
-http://nombre-del-proyecto.test
+http://localhost/helpdesk/index.php
 ```
-
+> Ajusta estos valores según tu configuración local
 ---
 
 ## Versiones utilizadas durante el desarrollo
@@ -117,6 +97,6 @@ http://nombre-del-proyecto.test
 
 ## Notas
 
+* Verificar que Git y PHP esteen añadidas a las variables de entorno del sistema.
 * Se recomienda utilizar las mismas versiones de las herramientas para evitar problemas de compatibilidad.
 * Verifica que la extensión de PHP requerida por el proyecto esté habilitada.
-* Si el proyecto utiliza Composer o Node.js, asegúrate de tenerlos instalados antes de ejecutar los comandos correspondientes.
