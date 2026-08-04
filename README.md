@@ -17,13 +17,13 @@ Antes de iniciar, asegúrate de tener instalados los siguientes programas:
 Abre una terminal y ejecuta:
 
 ```bash
-git clone https://github.com/USUARIO/NOMBRE-DEL-REPOSITORIO.git
+git clone https://github.com/AquinoPL/helpdesk.git
 ```
 
 Luego ingresa al directorio del proyecto:
 
 ```bash
-cd NOMBRE-DEL-REPOSITORIO
+cd helpdesk/
 ```
 
 ### 2. Copiar el proyecto a Laragon
@@ -43,19 +43,6 @@ Abre Laragon e inicia los servicios:
 
 ### 4. Configurar el archivo de entorno
 
-Si el proyecto utiliza un archivo de configuración de entorno:
-
-1. Copia el archivo:
-
-```text
-.env.example
-```
-
-como:
-
-```text
-.env
-```
 
 2. Configura los datos de conexión a la base de datos:
 
