@@ -4,10 +4,11 @@
 
 Antes de iniciar, asegúrate de tener instalados los siguientes programas:
 
-* **Laragon 2025** (v8.3.0)
-* **PHP 8.3.26**
-* **MySQL Workbench 8.0.47**
-* **Git** (v2.54.0.windows.1)
+* **Laragon 2025** (v8.3.0) Link: https://www.filepuma.com/es/download/laragon_8.3.0-54386/
+* **PHP 8.3.26** (Incluida en Laragon 2025)
+* **MySQL Workbench 8.0.47** Link: https://downloads.mysql.com/archives/workbench/
+* **Git** (v2.54.0.windows.1) Link: https://sourceforge.net/projects/git-for-windows.mirror/files/v2.54.0.windows.1/
+* **Visual Studio Code** https://code.visualstudio.com/download
 
 ## Pasos para la instalación
 
